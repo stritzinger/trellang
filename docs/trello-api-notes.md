@@ -27,7 +27,7 @@ Base API and Authentication
 - Auth: use API key and token.
   - Query params: `?key=YOUR_KEY&token=YOUR_TOKEN`
   - Or HTTP headers where supported; query params are simplest and documented.
-- Tokens are user-scoped; treat as secrets. Prefer environment variables for local dev.
+- Tokens are user-scoped; treat as secrets. Prefer a non-committed Erlang `dev.config` loaded into the application environment for local and CI runs.
 
 Nested Resources and Expansions
 -------------------------------
@@ -92,13 +92,13 @@ Erlang Implementation Notes
 ---------------------------
 - HTTP client: prefer a robust client (e.g., `hackney`) with connection reuse and timeouts.
 - JSON: use Erlang/OTP built-in `json` and decode to maps; keep raw maps for flexibility.
-- Credentials: load `TRELLO_KEY` and `TRELLO_TOKEN` from environment; compose query params centrally.
+- Credentials: load `trellang.trello_key` and `trellang.trello_token` from the application environment (e.g., via `application:get_env/2`); compose query params centrally.
 - Request builder: central function to add base URL, auth params, standard headers, and encode query.
 - Pagination helpers: utilities to iterate with `before/since/limit` and accumulate results safely.
 - Rate-limit handling: middleware that detects 429/5xx and retries with exponential backoff + jitter.
 - Webhooks: lightweight HTTP handler that validates headers, decodes JSON, and enqueues work; respond 200 fast.
 - Idempotency: Trello lacks idempotency keys; dedupe by action id or application keys when retrying writes.
-- Testing: use the Postman collection as reference; mock HTTP in unit tests; integration tests guarded by env vars.
+- Testing: use the Postman collection as reference; mock HTTP in unit tests; integration tests driven by non-committed `dev.config`.
 
 Examples
 --------

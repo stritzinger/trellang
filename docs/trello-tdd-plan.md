@@ -15,13 +15,15 @@ Test Infrastructure
 - Common Test suites; follow local suite conventions.
 - Layers:
   - Unit tests: request building, auth param injection, JSON encode/decode, error mapping (mock HTTP).
-  - Integration tests: real Trello REST calls, guarded by env vars.
-- Required environment:
-  - `TRELLO_KEY`, `TRELLO_TOKEN`
-  - `TRELLO_BOARD_ID` (existing)
-  - `TRELLO_LIST_ID` (existing target list)
-  - Optional for custom fields: `TRELLO_CF_ID_TEXT`, `TRELLO_CF_ID_NUMBER`, `TRELLO_CF_ID_CHECKBOX`, `TRELLO_CF_ID_DATE`, `TRELLO_CF_ID_LIST`
-- Cleanup: archive or delete test-created cards in `end_per_testcase/2` when enabled by `TRELLO_TEST_CLEANUP=1`.
+  - Integration tests: real Trello REST calls using a non-committed `dev.config`.
+- Configuration via Erlang application environment (non-committed `dev.config` loaded with `ERL_FLAGS="-config ./dev.config"`):
+  - `trellang.trello_key` (string)
+  - `trellang.trello_token` (string)
+  - `trellang.board_id` (string)
+  - `trellang.list_id` (string)
+  - Optional custom fields on the test board:
+    - `trellang.cf_id_text`, `trellang.cf_id_number`, `trellang.cf_id_checkbox`, `trellang.cf_id_date`, `trellang.cf_id_list`
+  - Cleanup control: `trellang.test_cleanup` (boolean) to archive/delete test cards in `end_per_testcase/2`.
 
 Tooling and Conventions
 -----------------------
@@ -46,15 +48,15 @@ TDD Steps
 ---------
 1) Health check and bootstrap
    - Unit: compose auth query params; validate error mapping skeleton.
-   - Integration: `GET /1/members/me` returns 200 with provided credentials; skip if env missing.
+   - Integration: `GET /1/members/me` returns 200 with provided credentials; skip if config missing.
 
 2) Read card (existing)
    - Unit: build `GET /1/cards/{id}` with `fields` filter; decode JSON into maps.
-   - Integration: fetch a known card (env-provided id); assert fields presence.
+   - Integration: fetch a known card (config-provided id); assert fields presence.
 
 3) Create card (minimal)
    - Unit: `POST /1/cards` with required `idList`, `name`.
-   - Integration: create on `TRELLO_LIST_ID`; assert 200/201, check `id`, `idList`, `name`; cleanup.
+   - Integration: create on configured `list_id`; assert 200/201, check `id`, `idList`, `name`; cleanup.
 
 4) Update standard fields
    - Unit: `PUT /1/cards/{id}` for `name`, `desc`, `due`, `pos`, `idLabels`, `idMembers`.
@@ -62,7 +64,7 @@ TDD Steps
 
 5) Retrieve board custom field definitions
    - Unit: `GET /1/boards/{boardId}/customFields`.
-   - Integration: fetch for `TRELLO_BOARD_ID`; assert shape; cache id/type mapping for tests.
+   - Integration: fetch for configured `board_id`; assert shape; cache id/type mapping for tests.
 
 6) Set card custom field values
    - Unit: `PUT /1/card/{cardId}/customField/{customFieldId}/item` payloads by type:
@@ -75,7 +77,7 @@ TDD Steps
 
 7) List cards for list (filters)
    - Unit: `GET /1/lists/{id}/cards?fields=...&limit=...`.
-   - Integration: list cards on `TRELLO_LIST_ID`; assert pagination behavior with `limit`.
+   - Integration: list cards on configured `list_id`; assert pagination behavior with `limit`.
 
 8) Error handling and limits
    - Unit: surface 400/401/403/404/429; map to error tuples; retry on 429/5xx with backoff.
@@ -93,7 +95,7 @@ Acceptance Criteria
 - Cards: create minimal card; update name/desc/due/pos/labels/members; read back changes.
 - Custom fields: list definitions; set value on a card; read back via `customFieldItems=true`.
 - Integration-created cards are cleaned up when cleanup is enabled.
-- Unit tests pass offline; integration tests pass with env.
+- Unit tests pass offline; integration tests pass with dev.config.
 
 References
 ----------
