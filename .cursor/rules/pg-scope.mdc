@@ -1,0 +1,18 @@
+---
+alwaysApply: true
+description: Erlang pg scope conventions and usage.
+globs:
+  - "**/*.erl"
+---
+
+Project rule: pg scopes
+-----------------------
+
+- Do NOT call `pg:start_link/0` globally. There is no singleton server.
+- Each `pg` scope is its own gen_server identified by the scope atom and must be started explicitly with `pg:start_link(Scope)` (e.g., under a supervisor).
+- Interact directly with the desired scope using `pg:join(Scope, Group, Pid)`, `pg:get_members(Scope, Group)`, etc.
+- When no scope is specified, `pg` uses the default scope.
+
+Skylark convention:
+- Use scope `skylark` for groups like `{DronePid, Group}`, and ensure the scope server is started.
+

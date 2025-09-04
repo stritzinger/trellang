@@ -1,0 +1,23 @@
+---
+alwaysApply: true
+description: Erlang gen_server callback conventions for handling calls, casts, and infos.
+globs:
+  - "**/*.erl"
+---
+
+GenServer callback conventions:
+
+- handle_call/3 and handle_cast/2
+  - Match only implemented request patterns.
+  - Do not add a catch‑all clause. Unknown messages should cause a function_clause crash.
+  - Rationale: Fail fast on programmer errors and surface missing branches during testing.
+
+- handle_info/2
+  - For unhandled messages, log at debug or warn level and drop the message.
+  - Prefer: `logger:debug("Unhandled info: ~p", [Info])` (or warn if it might indicate an issue), then `{noreply, State}`.
+  - Rationale: External/system messages can legitimately arrive; log-and-drop avoids noisy crashes while preserving observability.
+
+Notes:
+- Prefer explicit pattern matches for known infos (timers, monitors) above the generic log-and-drop clause.
+- Keep logging lightweight to avoid hot loops; throttle or elevate to warn only when appropriate.
+

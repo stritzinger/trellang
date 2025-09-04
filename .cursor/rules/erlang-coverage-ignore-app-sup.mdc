@@ -1,0 +1,13 @@
+---
+alwaysApply: true
+description: Ignore coverage for Erlang application and supervisor modules in reporting.
+globs:
+  - "**/*_app.erl"
+  - "**/*_sup.erl"
+---
+
+Coverage reporting rule:
+
+- Exclude modules matching `*_app.erl` and `*_sup.erl` from coverage expectations and summaries.
+- Rationale: these modules are exercised in releases and are straightforward; excluding them avoids skewing test-time coverage metrics.
+

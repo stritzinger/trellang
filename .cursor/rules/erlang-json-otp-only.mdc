@@ -1,0 +1,22 @@
+---
+alwaysApply: true
+description: Enforce Erlang/OTP built-in JSON usage across Erlang code.
+globs:
+  - "**/*.erl"
+---
+
+JSON usage rule (Erlang/OTP only)
+---------------------------------
+
+- Use Erlang/OTP built-in `json` for all JSON encoding/decoding.
+- Do not add or use third-party JSON libraries (e.g., `jiffy`, `jsx`, `jsone`).
+- Prefer maps as decoded representation and binaries for serialized payloads.
+- Centralize JSON encode/decode helpers to ensure consistent options.
+
+Rationale:
+- Reduces dependencies and aligns with standard OTP functionality.
+- Ensures consistent behavior and compatibility across environments.
+
+Sources:
+- Erlang/OTP json docs: `https://www.erlang.org/doc/apps/stdlib/json.html`
+
