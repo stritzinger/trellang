@@ -1,9 +1,6 @@
-%%%-------------------------------------------------------------------
-%% @doc trellang top level supervisor.
-%% @end
-%%%-------------------------------------------------------------------
-
+%% Internal supervisor module; hidden from generated docs
 -module(trellang_sup).
+-moduledoc false.
 
 -behaviour(supervisor).
 

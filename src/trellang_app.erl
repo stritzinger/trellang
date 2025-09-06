@@ -1,9 +1,6 @@
-%%%-------------------------------------------------------------------
-%% @doc trellang public API
-%% @end
-%%%-------------------------------------------------------------------
-
+%% Internal application module; hidden from generated docs
 -module(trellang_app).
+-moduledoc false.
 
 -behaviour(application).
 
