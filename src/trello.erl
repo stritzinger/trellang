@@ -8,6 +8,14 @@
     get_label_id_by_color/2,
     add_label/2,
     add_member/2,
+    %% Ergonomic helpers
+    set_name/2,
+    set_desc/2,
+    set_due/2,
+    clear_due/1,
+    set_pos/2,
+    add_label_by_color/3,
+    add_member_by_username/3,
     list_board_usernames/1,
     get_member_id_by_username/2,
     list_custom_fields/1,
@@ -107,12 +115,12 @@ http_get_json_sni(Url, SNIHost) ->
 do_get_with_retry(Url, HTTPOpts, ReqOpts, Attempts, Backoff) when Attempts > 0 ->
     case httpc:request(get, {Url, []}, HTTPOpts, ReqOpts) of
         {ok, {{_Vsn, 200, _}, _Headers, Body}} -> {ok, json:decode(Body)};
-        {ok, {{_Vsn, Code, _}, _Headers, Body}} when Code =:= 429; Code >= 500 ->
+        {ok, {{_Vsn, Code, _}, _Headers, _Body}} when Code =:= 429; Code >= 500 ->
             timer:sleep(Backoff + jitter()),
             do_get_with_retry(Url, HTTPOpts, ReqOpts, Attempts - 1, next_backoff(Backoff));
         {ok, {{_Vsn, Code2, _}, _H2, Body2}} -> {error, {http_error, Code2, Body2}};
         {error, Reason} -> {error, Reason}
-    end.
+    end;
 do_get_with_retry(_Url, _HTTPOpts, _ReqOpts, 0, _Backoff) ->
     {error, retry_exhausted}.
 
@@ -191,12 +199,12 @@ do_write_with_retry(Method, Url, Headers, ContentType, Body, HTTPOpts, ReqOpts, 
         {ok, {{_Vsn, Code2, _}, _Headers2, RespBody2}} ->
             {error, {http_error, Code2, RespBody2}};
         {error, Reason} -> {error, Reason}
-    end.
+    end;
 do_write_with_retry(_M, _U, _H, _C, _B, _O, _R, 0, _Backoff) ->
     {error, retry_exhausted}.
 
 jitter() ->
-    (erlang:monotonic_time() rem 100) band 16#7FFFFFFF.
+    rand:uniform(100).
 
 next_backoff(0) -> 200;
 next_backoff(B) -> min(B * 2, 5000).
@@ -363,5 +371,35 @@ build_query_from_opts(Opts, Keys) ->
             false -> Acc
         end
     end, [], Opts).
+
+%% Ergonomic helpers
+
+set_name(CardId, Name) ->
+    update_card(CardId, #{name => Name}).
+
+set_desc(CardId, Desc) ->
+    update_card(CardId, #{desc => Desc}).
+
+set_due(CardId, DateIso8601OrNull) ->
+    update_card(CardId, #{due => DateIso8601OrNull}).
+
+clear_due(CardId) ->
+    update_card(CardId, #{due => <<"null">>}).
+
+set_pos(CardId, Pos) ->
+    %% Pos can be a number or one of <<"top">>, <<"bottom">>
+    update_card(CardId, #{pos => Pos}).
+
+add_label_by_color(BoardId, CardId, Color) ->
+    case get_label_id_by_color(BoardId, Color) of
+        {ok, LabelId} -> add_label(CardId, LabelId);
+        Error -> Error
+    end.
+
+add_member_by_username(BoardId, CardId, Username) ->
+    case get_member_id_by_username(BoardId, Username) of
+        {ok, MemberId} -> add_member(CardId, MemberId);
+        Error -> Error
+    end.
 
 
