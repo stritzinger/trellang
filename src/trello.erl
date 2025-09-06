@@ -102,14 +102,19 @@ http_get_json_sni(Url, SNIHost) ->
     ],
     HTTPOpts = [{ssl, SSLOpts}],
     ReqOpts = [{body_format, binary}],
+    do_get_with_retry(Url, HTTPOpts, ReqOpts, 5, 0).
+
+do_get_with_retry(Url, HTTPOpts, ReqOpts, Attempts, Backoff) when Attempts > 0 ->
     case httpc:request(get, {Url, []}, HTTPOpts, ReqOpts) of
-        {ok, {{_Vsn, 200, _}, _Headers, Body}} ->
-            {ok, json:decode(Body)};
-        {ok, {{_Vsn, Code, _}, _Headers, Body}} ->
-            {error, {http_error, Code, Body}};
-        {error, Reason} ->
-            {error, Reason}
+        {ok, {{_Vsn, 200, _}, _Headers, Body}} -> {ok, json:decode(Body)};
+        {ok, {{_Vsn, Code, _}, _Headers, Body}} when Code =:= 429; Code >= 500 ->
+            timer:sleep(Backoff + jitter()),
+            do_get_with_retry(Url, HTTPOpts, ReqOpts, Attempts - 1, next_backoff(Backoff));
+        {ok, {{_Vsn, Code2, _}, _H2, Body2}} -> {error, {http_error, Code2, Body2}};
+        {error, Reason} -> {error, Reason}
     end.
+do_get_with_retry(_Url, _HTTPOpts, _ReqOpts, 0, _Backoff) ->
+    {error, retry_exhausted}.
 
 http_post_json(Url) ->
     case http_post_json_sni(Url, "api.trello.com") of
@@ -131,13 +136,7 @@ http_post_json_sni(Url, SNIHost) ->
     Headers = [],
     Body = <<>>,
     ReqOpts = [{body_format, binary}],
-    case httpc:request(post, {Url, Headers, "application/x-www-form-urlencoded", Body}, HTTPOpts, ReqOpts) of
-        {ok, {{_Vsn, Code, _}, _Headers, RespBody}} when Code =:= 200; Code =:= 201 ->
-            {ok, json:decode(RespBody)};
-        {ok, {{_Vsn, Code2, _}, _Headers2, RespBody2}} ->
-            {error, {http_error, Code2, RespBody2}};
-        {error, Reason} -> {error, Reason}
-    end.
+    do_write_with_retry(post, Url, Headers, "application/x-www-form-urlencoded", Body, HTTPOpts, ReqOpts, 5, 0).
 
 do_put(Path, QueryKVs) ->
     {ok, Key, Token} = get_credentials(),
@@ -165,13 +164,7 @@ http_put_json_sni(Url, SNIHost) ->
     Headers = [],
     Body = <<>>,
     ReqOpts = [{body_format, binary}],
-    case httpc:request(put, {Url, Headers, "application/x-www-form-urlencoded", Body}, HTTPOpts, ReqOpts) of
-        {ok, {{_Vsn, Code, _}, _Headers, RespBody}} when Code =:= 200; Code =:= 201 ->
-            {ok, json:decode(RespBody)};
-        {ok, {{_Vsn, Code2, _}, _Headers2, RespBody2}} ->
-            {error, {http_error, Code2, RespBody2}};
-        {error, Reason} -> {error, Reason}
-    end.
+    do_write_with_retry(put, Url, Headers, "application/x-www-form-urlencoded", Body, HTTPOpts, ReqOpts, 5, 0).
 
 do_put_body(Path, QueryKVs, MapBody) ->
     {ok, Key, Token} = get_credentials(),
@@ -186,13 +179,27 @@ do_put_body(Path, QueryKVs, MapBody) ->
     BodyBin = json:encode(MapBody),
     Headers = [{"Content-Type", "application/json"}],
     ReqOpts = [{body_format, binary}],
-    case httpc:request(put, {Url, Headers, "application/json", BodyBin}, HTTPOpts, ReqOpts) of
+    do_write_with_retry(put, Url, Headers, "application/json", BodyBin, HTTPOpts, ReqOpts, 5, 0).
+
+do_write_with_retry(Method, Url, Headers, ContentType, Body, HTTPOpts, ReqOpts, Attempts, Backoff) when Attempts > 0 ->
+    case httpc:request(Method, {Url, Headers, ContentType, Body}, HTTPOpts, ReqOpts) of
         {ok, {{_Vsn, Code, _}, _Headers, RespBody}} when Code =:= 200; Code =:= 201 ->
             {ok, json:decode(RespBody)};
+        {ok, {{_Vsn, Code, _}, _Headers, _RespBody}} when Code =:= 429; Code >= 500 ->
+            timer:sleep(Backoff + jitter()),
+            do_write_with_retry(Method, Url, Headers, ContentType, Body, HTTPOpts, ReqOpts, Attempts - 1, next_backoff(Backoff));
         {ok, {{_Vsn, Code2, _}, _Headers2, RespBody2}} ->
             {error, {http_error, Code2, RespBody2}};
         {error, Reason} -> {error, Reason}
     end.
+do_write_with_retry(_M, _U, _H, _C, _B, _O, _R, 0, _Backoff) ->
+    {error, retry_exhausted}.
+
+jitter() ->
+    (erlang:monotonic_time() rem 100) band 16#7FFFFFFF.
+
+next_backoff(0) -> 200;
+next_backoff(B) -> min(B * 2, 5000).
 
 to_bin(B) when is_binary(B) -> B;
 to_bin(L) when is_list(L) -> unicode:characters_to_binary(L);
