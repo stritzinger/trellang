@@ -16,7 +16,10 @@
     get_card_labels/1,
     get_card_members/1,
     set_custom_field_date/3,
-    set_custom_field_checkbox/3
+    set_custom_field_checkbox/3,
+    list_lists/1,
+    list_cards_for_list/2,
+    dump_board/2
 ]).
 
 -define(BASE_URL, "https://api.trello.com/1").
@@ -321,5 +324,37 @@ get_card_members(CardId0) ->
     do_get(["/cards/", CardId, "/members"], [
         {<<"fields">>, <<"id,username">>}
     ]).
+
+%% Lists and Cards
+list_lists(BoardId0) ->
+    BoardId = to_bin(BoardId0),
+    do_get(["/boards/", BoardId, "/lists"], [
+        {<<"fields">>, <<"id,name,closed,pos">>}
+    ]).
+
+list_cards_for_list(ListId0, Opts) ->
+    ListId = to_bin(ListId0),
+    Query = build_query_from_opts(Opts, [fields, limit]),
+    do_get(["/lists/", ListId, "/cards"], Query).
+
+dump_board(BoardId0, _Opts) ->
+    BoardId = to_bin(BoardId0),
+    {ok, Board} = do_get(["/boards/", BoardId], [{<<"fields">>, <<"id,name">>}]),
+    {ok, Lists} = list_lists(BoardId),
+    CardsPerList = lists:map(
+      fun(L) ->
+          Lid = maps:get(<<"id">>, L),
+          {ok, Cards} = list_cards_for_list(Lid, #{fields => <<"id,name,idList">>, limit => 1000}),
+          L#{ <<"cards">> => Cards }
+      end, Lists),
+    {ok, #{ board => Board, lists => CardsPerList }}.
+
+build_query_from_opts(Opts, Keys) ->
+    maps:fold(fun(K, V, Acc) ->
+        case lists:member(K, Keys) of
+            true -> [{atom_to_binary(K, utf8), to_bin(V)} | Acc];
+            false -> Acc
+        end
+    end, [], Opts).
 
 
