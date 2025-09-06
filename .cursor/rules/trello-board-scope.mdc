@@ -1,0 +1,24 @@
+---
+alwaysApply: true
+description: Restrict Trello operations to the configured board from dev.config.
+globs:
+  - "**/*.erl"
+---
+
+Project rule: Trello board scope (dev.config)
+--------------------------------------------
+
+- All Trello API interactions MUST target only the board id configured in the application environment (`trellang.board_id`).
+- Access to lists on that board is allowed (including lists other than the primary `trellang.list_id`).
+- Access to any other board id is forbidden in code and tests.
+- The key/token in `dev.config` are tied to a specific account; do not assume broader permissions.
+
+Implementation guidance:
+- When a board id is required, read `trellang.board_id` via `application:get_env/2` and compare before making the request.
+- For endpoints that accept list ids, ensure the list belongs to the configured board before proceeding.
+- Fail fast: return an error (e.g., `{error, forbidden_board}`) if an operation targets another board.
+
+Rationale:
+- Prevent accidental access or mutation of resources outside the intended test/development board.
+- Keeps local development safe and reproducible across environments.
+
