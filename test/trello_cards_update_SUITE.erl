@@ -73,7 +73,7 @@ update_label_by_color(_Config) ->
                     CardId = maps:get(<<"id">>, Card0),
                     %% use add_label helper to ensure idLabels is returned afterwards
                     {ok, _} = trello:add_label(CardId, LabelId),
-                    Card = wait_labels(CardId, 8),
+                    Card = wait_for_labels(CardId, 8),
                     Labels = maps:get(<<"labels">>, Card, []),
                     IdLabels = maps:get(<<"idLabels">>, Card, []),
                     true = (Labels =/= []) orelse (IdLabels =/= []),
@@ -108,18 +108,15 @@ to_bin(B) when is_binary(B) -> B;
 to_bin(L) when is_list(L) -> unicode:characters_to_binary(L);
 to_bin(A) when is_atom(A) -> atom_to_binary(A, utf8).
 
-wait_labels(CardId, Attempts) when Attempts > 0 ->
+wait_for_labels(CardId, Attempts) ->
     {ok, Card} = trello:get_card(CardId),
     Labels = maps:get(<<"labels">>, Card, []),
     IdLabels = maps:get(<<"idLabels">>, Card, []),
     case (Labels =/= []) orelse (IdLabels =/= []) of
         true -> Card;
-        false -> timer:sleep(300), wait_labels(CardId, Attempts - 1)
+        false when Attempts =< 0 -> Card;
+        false -> timer:sleep(300), wait_for_labels(CardId, Attempts - 1)
     end.
-
-wait_labels(CardId, 0) ->
-    {ok, Card} = trello:get_card(CardId),
-    Card.
 
 find_any_label_id_on_board(BoardId0) ->
     Colors = [<<"green">>, <<"blue">>, <<"yellow">>, <<"red">>],

@@ -20,28 +20,16 @@ me() ->
 %% Internal helpers
 
 do_get(Path, QueryKVs) ->
-    case {application:get_env(trellang, trello_key), application:get_env(trellang, trello_token)} of
-        {undefined, _} -> {error, missing_trello_key};
-        {_, undefined} -> {error, missing_trello_token};
-        {{ok, Key0}, {ok, Token0}} ->
-            Key = to_bin(Key0),
-            Token = to_bin(Token0),
-            Query = [{<<"key">>, Key}, {<<"token">>, Token} | QueryKVs],
-            Url = build_url(Path, Query),
-            http_get_json(Url)
-    end.
+    {ok, Key, Token} = get_credentials(),
+    Query = [{<<"key">>, Key}, {<<"token">>, Token} | QueryKVs],
+    Url = build_url(Path, Query),
+    http_get_json(Url).
 
 do_post(Path, QueryKVs) ->
-    case {application:get_env(trellang, trello_key), application:get_env(trellang, trello_token)} of
-        {undefined, _} -> {error, missing_trello_key};
-        {_, undefined} -> {error, missing_trello_token};
-        {{ok, Key0}, {ok, Token0}} ->
-            Key = to_bin(Key0),
-            Token = to_bin(Token0),
-            Query = [{<<"key">>, Key}, {<<"token">>, Token} | QueryKVs],
-            Url = build_url(Path, Query),
-            http_post_json(Url)
-    end.
+    {ok, Key, Token} = get_credentials(),
+    Query = [{<<"key">>, Key}, {<<"token">>, Token} | QueryKVs],
+    Url = build_url(Path, Query),
+    http_post_json(Url).
 
 get_card(CardId0) ->
     CardId = to_bin(CardId0),
@@ -141,16 +129,10 @@ http_post_json_sni(Url, SNIHost) ->
     end.
 
 do_put(Path, QueryKVs) ->
-    case {application:get_env(trellang, trello_key), application:get_env(trellang, trello_token)} of
-        {undefined, _} -> {error, missing_trello_key};
-        {_, undefined} -> {error, missing_trello_token};
-        {{ok, Key0}, {ok, Token0}} ->
-            Key = to_bin(Key0),
-            Token = to_bin(Token0),
-            Query = [{<<"key">>, Key}, {<<"token">>, Token} | QueryKVs],
-            Url = build_url(Path, Query),
-            http_put_json(Url)
-    end.
+    {ok, Key, Token} = get_credentials(),
+    Query = [{<<"key">>, Key}, {<<"token">>, Token} | QueryKVs],
+    Url = build_url(Path, Query),
+    http_put_json(Url).
 
 http_put_json(Url) ->
     case http_put_json_sni(Url, "api.trello.com") of
@@ -184,6 +166,15 @@ to_bin(B) when is_binary(B) -> B;
 to_bin(L) when is_list(L) -> unicode:characters_to_binary(L);
 to_bin(A) when is_atom(A) -> atom_to_binary(A, utf8);
 to_bin(I) when is_integer(I) -> integer_to_binary(I).
+
+%% Credentials helper: fetch key/token from application env, return binaries
+get_credentials() ->
+    case {application:get_env(trellang, trello_key), application:get_env(trellang, trello_token)} of
+        {{ok, Key0}, {ok, Token0}} -> {ok, to_bin(Key0), to_bin(Token0)};
+        {undefined, _} -> {error, missing_trello_key};
+        {_, undefined} -> {error, missing_trello_token};
+        {OtherKey, OtherTok} -> {error, {invalid_credentials_env, OtherKey, OtherTok}}
+    end.
 
 
 %% Utility: resolve a label id on the configured board by standard color or name
