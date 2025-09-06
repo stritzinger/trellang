@@ -23,13 +23,21 @@ See the module docs for `trello` (ExDoc HTML) for API reference and examples. Fo
 
 Examples
 --------
-Assuming you run with `ERL_FLAGS="-config ./dev.config"` and your `dev.config` contains `board_id` and `list_id`.
+Assumes your key/token are provided via `dev.config`.
+
+How to get your board id:
+- Open the board in your browser and copy the 8‑character short link after `/b/` in the URL (e.g., `abcd1234`). Trello accepts this short link wherever a board id is required, or you can resolve the full id via `GET /1/boards/{shortLink}?fields=id`.
 
 Create and update a card
 ```
+%% board id (short link or full id)
+BoardId = <<"abcd1234">>,
+
+%% pick a list on that board
+{ok, Lists} = trello:list_lists(BoardId),
+ListId = maps:get(<<"id">>, hd(Lists)),
+
 %% create
-{ok, ListId} = application:get_env(trellang, list_id),
-{ok, BoardId} = application:get_env(trellang, board_id),
 {ok, Card} = trello:create_card(ListId, #{name => <<"Hello Trello">>}),
 CardId = maps:get(<<"id">>, Card),
 
@@ -46,8 +54,9 @@ CardId = maps:get(<<"id">>, Card),
 
 Custom fields (text/date/checkbox)
 ```
-{ok, BoardId} = application:get_env(trellang, board_id),
-{ok, ListId} = application:get_env(trellang, list_id),
+BoardId = <<"abcd1234">>,
+{ok, Lists} = trello:list_lists(BoardId),
+ListId = maps:get(<<"id">>, hd(Lists)),
 {ok, Fields} = trello:list_custom_fields(BoardId),
 TextId = maps:get(<<"id">>, hd([F || F <- Fields, maps:get(<<"type">>, F, <<>>) =:= <<"text">>])),
 {ok, Card} = trello:create_card(ListId, #{name => <<"CF demo">>}),
@@ -58,7 +67,7 @@ CardId = maps:get(<<"id">>, Card),
 
 Discover lists and dump a board
 ```
-{ok, BoardId} = application:get_env(trellang, board_id),
+BoardId = <<"abcd1234">>,
 {ok, Lists} = trello:list_lists(BoardId),
 {ok, Dump} = trello:dump_board(BoardId, #{}).
 %% Dump = #{ board => #{<<"id">> := _, <<"name">> := _},
