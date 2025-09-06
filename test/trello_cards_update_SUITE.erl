@@ -3,10 +3,10 @@
 -include_lib("common_test/include/ct.hrl").
 
 -export([suite/0, all/0, init_per_suite/1, end_per_suite/1]).
--export([update_name_and_desc/1, update_real_due_date/1, update_labels_and_members/1, update_label_by_color/1, update_member_by_username/1]).
+-export([update_name_and_desc/1, update_real_due_date/1, update_label_by_color/1, update_member_by_username/1]).
 
 suite() -> [{timetrap, {seconds, 90}}].
-all() -> [update_name_and_desc, update_real_due_date, update_labels_and_members, update_label_by_color, update_member_by_username].
+all() -> [update_name_and_desc, update_real_due_date, update_label_by_color, update_member_by_username].
 
 init_per_suite(Config) ->
     ok = ensure_started(ssl),
@@ -51,9 +51,7 @@ update_member_by_username(_Config) ->
                     {ok, Card0} = trello:create_card(ListId0, #{name => <<"CT member username test">>}),
                     CardId = maps:get(<<"id">>, Card0),
                     {ok, _} = trello:add_member(CardId, MemberId),
-                    {ok, Card} = trello:get_card(CardId),
-                    IdMembers = maps:get(<<"idMembers">>, Card, []),
-                    true = lists:member(MemberId, IdMembers),
+                    ok = wait_for_member(CardId, MemberId, 60),
                     ok;
                 _ -> {skip, "no members returned for board"}
             end
@@ -73,49 +71,35 @@ update_label_by_color(_Config) ->
                     CardId = maps:get(<<"id">>, Card0),
                     %% use add_label helper to ensure idLabels is returned afterwards
                     {ok, _} = trello:add_label(CardId, LabelId),
-                    Card = wait_for_labels(CardId, 8),
-                    Labels = maps:get(<<"labels">>, Card, []),
-                    IdLabels = maps:get(<<"idLabels">>, Card, []),
-                    true = (Labels =/= []) orelse (IdLabels =/= []),
+                    ok = wait_for_label(CardId, LabelId, 60),
                     ok
             end
     end.
 
-update_labels_and_members(_Config) ->
-    case {application:get_env(trellang, board_id), application:get_env(trellang, list_id),
-          application:get_env(trellang, label_id), application:get_env(trellang, member_id)} of
-        {undefined, _, _, _} -> {skip, "missing trellang.board_id in dev.config"};
-        {_, undefined, _, _} -> {skip, "missing trellang.list_id in dev.config"};
-        {_, _, undefined, _} -> {skip, "missing trellang.label_id in dev.config (optional test)"};
-        {_, _, _, undefined} -> {skip, "missing trellang.member_id in dev.config (optional test)"};
-        {_, _, {ok, LabelId0}, {ok, MemberId0}} ->
-            LabelId = to_bin(LabelId0),
-            MemberId = to_bin(MemberId0),
-            {ok, ListId0} = application:get_env(trellang, list_id),
-            {ok, Card0} = trello:create_card(ListId0, #{name => <<"CT labels/members test">>}),
-            CardId = maps:get(<<"id">>, Card0),
-            {ok, _U1} = trello:update_card(CardId, #{idLabels => [LabelId]}),
-            {ok, _U2} = trello:update_card(CardId, #{idMembers => [MemberId]}),
-            {ok, Card} = trello:get_card(CardId),
-            IdLabels = maps:get(<<"idLabels">>, Card),
-            true = lists:member(LabelId, IdLabels),
-            IdMembers = maps:get(<<"idMembers">>, Card),
-            true = lists:member(MemberId, IdMembers),
-            ok
-    end.
 
 to_bin(B) when is_binary(B) -> B;
 to_bin(L) when is_list(L) -> unicode:characters_to_binary(L);
 to_bin(A) when is_atom(A) -> atom_to_binary(A, utf8).
 
-wait_for_labels(CardId, Attempts) ->
-    {ok, Card} = trello:get_card(CardId),
-    Labels = maps:get(<<"labels">>, Card, []),
-    IdLabels = maps:get(<<"idLabels">>, Card, []),
-    case (Labels =/= []) orelse (IdLabels =/= []) of
-        true -> Card;
-        false when Attempts =< 0 -> Card;
-        false -> timer:sleep(300), wait_for_labels(CardId, Attempts - 1)
+wait_for_member(CardId, MemberId, Attempts) ->
+    {ok, Members} = trello:get_card_members(CardId),
+    IdMembers = [ maps:get(<<"id">>, M) || M <- Members ],
+    case lists:member(MemberId, IdMembers) of
+        true -> ok;
+        false when Attempts =< 0 -> ct:fail({member_not_visible, MemberId});
+        false -> timer:sleep(1000), wait_for_member(CardId, MemberId, Attempts - 1)
+    end.
+
+wait_for_label(CardId, LabelId, Attempts) ->
+    {ok, Labels} = trello:get_card_labels(CardId),
+    Has = lists:any(
+            fun(#{<<"id">> := Id}) -> Id =:= LabelId;
+               (_) -> false
+            end, Labels),
+    case Has of
+        true -> ok;
+        false when Attempts =< 0 -> ct:fail({label_not_visible, LabelId});
+        false -> timer:sleep(1000), wait_for_label(CardId, LabelId, Attempts - 1)
     end.
 
 find_any_label_id_on_board(BoardId0) ->

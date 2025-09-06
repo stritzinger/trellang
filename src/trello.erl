@@ -9,7 +9,14 @@
     add_label/2,
     add_member/2,
     list_board_usernames/1,
-    get_member_id_by_username/2
+    get_member_id_by_username/2,
+    list_custom_fields/1,
+    set_custom_field_text/3,
+    get_card_with_custom_fields/1,
+    get_card_labels/1,
+    get_card_members/1,
+    set_custom_field_date/3,
+    set_custom_field_checkbox/3
 ]).
 
 -define(BASE_URL, "https://api.trello.com/1").
@@ -36,7 +43,8 @@ get_card(CardId0) ->
     Fields = <<"id,name,desc,due,pos,idBoard">>,
     do_get(["/cards/", CardId], [
         {<<"fields">>, Fields},
-        {<<"labels">>, <<"all">>}
+        {<<"labels">>, <<"all">>},
+        {<<"members">>, <<"true">>}
     ]).
 
 create_card(ListId0, Options) when is_map(Options) ->
@@ -162,6 +170,27 @@ http_put_json_sni(Url, SNIHost) ->
         {error, Reason} -> {error, Reason}
     end.
 
+do_put_body(Path, QueryKVs, MapBody) ->
+    {ok, Key, Token} = get_credentials(),
+    Query = [{<<"key">>, Key}, {<<"token">>, Token} | QueryKVs],
+    Url = build_url(Path, Query),
+    SSLOpts = [
+        {server_name_indication, "api.trello.com"},
+        {verify, verify_peer},
+        {cacerts, public_key:cacerts_get()}
+    ],
+    HTTPOpts = [{ssl, SSLOpts}],
+    BodyBin = json:encode(MapBody),
+    Headers = [{"Content-Type", "application/json"}],
+    ReqOpts = [{body_format, binary}],
+    case httpc:request(put, {Url, Headers, "application/json", BodyBin}, HTTPOpts, ReqOpts) of
+        {ok, {{_Vsn, Code, _}, _Headers, RespBody}} when Code =:= 200; Code =:= 201 ->
+            {ok, json:decode(RespBody)};
+        {ok, {{_Vsn, Code2, _}, _Headers2, RespBody2}} ->
+            {error, {http_error, Code2, RespBody2}};
+        {error, Reason} -> {error, Reason}
+    end.
+
 to_bin(B) when is_binary(B) -> B;
 to_bin(L) when is_list(L) -> unicode:characters_to_binary(L);
 to_bin(A) when is_atom(A) -> atom_to_binary(A, utf8);
@@ -238,5 +267,59 @@ get_member_id_by_username(BoardId0, User0) ->
             end;
         Other -> Other
     end.
+
+%% Custom Fields
+list_custom_fields(BoardId0) ->
+    BoardId = to_bin(BoardId0),
+    case do_get(["/boards/", BoardId, "/customFields"], []) of
+        {ok, Fields} when is_list(Fields) -> {ok, Fields};
+        Other -> Other
+    end.
+
+set_custom_field_text(CardId0, FieldId0, Text0) ->
+    CardId = to_bin(CardId0),
+    FieldId = to_bin(FieldId0),
+    Text = to_bin(Text0),
+    Body = #{
+        <<"value">> => #{ <<"text">> => Text }
+    },
+    do_put_body(["/card/", CardId, "/customField/", FieldId, "/item"], [], Body).
+
+set_custom_field_date(CardId0, FieldId0, DateIso8601) ->
+    CardId = to_bin(CardId0),
+    FieldId = to_bin(FieldId0),
+    Date = to_bin(DateIso8601),
+    Body = #{
+        <<"value">> => #{ <<"date">> => Date }
+    },
+    do_put_body(["/card/", CardId, "/customField/", FieldId, "/item"], [], Body).
+
+set_custom_field_checkbox(CardId0, FieldId0, Bool) ->
+    CardId = to_bin(CardId0),
+    FieldId = to_bin(FieldId0),
+    Checked = case Bool of true -> <<"true">>; false -> <<"false">>; _ -> <<"false">> end,
+    Body = #{
+        <<"value">> => #{ <<"checked">> => Checked }
+    },
+    do_put_body(["/card/", CardId, "/customField/", FieldId, "/item"], [], Body).
+
+get_card_with_custom_fields(CardId0) ->
+    CardId = to_bin(CardId0),
+    do_get(["/cards/", CardId], [
+        {<<"customFieldItems">>, <<"true">>},
+        {<<"fields">>, <<"id">>}
+    ]).
+
+get_card_labels(CardId0) ->
+    CardId = to_bin(CardId0),
+    do_get(["/cards/", CardId, "/labels"], [
+        {<<"fields">>, <<"id,color,name">>}
+    ]).
+
+get_card_members(CardId0) ->
+    CardId = to_bin(CardId0),
+    do_get(["/cards/", CardId, "/members"], [
+        {<<"fields">>, <<"id,username">>}
+    ]).
 
 
