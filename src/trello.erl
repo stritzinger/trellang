@@ -93,6 +93,17 @@ official guidance for details on style and metadata.
 
 -define(BASE_URL, "https://api.trello.com/1").
 
+-doc """
+Fetch the authenticated member ("/members/me").
+
+Returns the member map on success.
+
+Example:
+```erlang
+{ok, Me} = trello:me(),
+Username = maps:get(<<"username">>, Me).
+```
+""".
 me() ->
     do_get("/members/me", []).
 
@@ -110,6 +121,17 @@ do_post(Path, QueryKVs) ->
     Url = build_url(Path, Query),
     http_post_json(Url).
 
+-doc """
+Get a card by id.
+
+Includes basic fields plus labels and members.
+
+Example:
+```erlang
+{ok, Card} = trello:get_card(<<"CARD_ID">>),
+Name = maps:get(<<"name">>, Card).
+```
+""".
 get_card(CardId0) ->
     CardId = to_bin(CardId0),
     Fields = <<"id,name,desc,due,pos,idBoard">>,
@@ -119,6 +141,17 @@ get_card(CardId0) ->
         {<<"members">>, <<"true">>}
     ]).
 
+-doc """
+Create a card on a list.
+
+Required: `ListId`. Options typically include `name`.
+
+Example:
+```erlang
+{ok, Card} = trello:create_card(<<"LIST_ID">>, #{name => <<"New card">>}),
+CardId = maps:get(<<"id">>, Card).
+```
+""".
 create_card(ListId0, Options) when is_map(Options) ->
     ListId = to_bin(ListId0),
     NameBin = to_bin(maps:get(name, Options, <<>>)),
@@ -128,6 +161,16 @@ create_card(ListId0, Options) when is_map(Options) ->
     ],
     do_post("/cards", Query).
 
+-doc """
+Update a card by id.
+
+Supports name, desc, due, pos, idLabels[], idMembers[].
+
+Example:
+```erlang
+{ok, _} = trello:update_card(<<"CARD_ID">>, #{desc => <<"Updated">>, pos => <<"top">>}).
+```
+""".
 update_card(CardId0, Updates) when is_map(Updates) ->
     CardId = to_bin(CardId0),
     Query0 = maps:fold(fun
@@ -286,6 +329,14 @@ get_credentials() ->
 
 
 %% Utility: resolve a label id on the configured board by standard color or name
+-doc """
+Resolve a label id on a board by standard color or label name.
+
+Example:
+```erlang
+{ok, LabelId} = trello:get_label_id_by_color(<<"BOARD_ID">>, <<"green">>).
+```
+""".
 get_label_id_by_color(BoardId0, Color0) ->
     BoardId = to_bin(BoardId0),
     Color = normalize_color(Color0),
@@ -313,18 +364,43 @@ normalize_color(V) ->
       string:to_lower(unicode:characters_to_list(to_bin(V)))).
 
 %% Add a label to a card by id
+-doc """
+Add a label to a card by label id.
+
+Example:
+```erlang
+{ok, _} = trello:add_label(<<"CARD_ID">>, <<"LABEL_ID">>).
+```
+""".
 add_label(CardId0, LabelId0) ->
     CardId = to_bin(CardId0),
     LabelId = to_bin(LabelId0),
     do_post(["/cards/", CardId, "/idLabels"], [{<<"value">>, LabelId}]).
 
 %% Add a member to a card by id
+-doc """
+Add a member to a card by member id.
+
+Example:
+```erlang
+{ok, _} = trello:add_member(<<"CARD_ID">>, <<"MEMBER_ID">>).
+```
+""".
 add_member(CardId0, MemberId0) ->
     CardId = to_bin(CardId0),
     MemberId = to_bin(MemberId0),
     do_post(["/cards/", CardId, "/idMembers"], [{<<"value">>, MemberId}]).
 
 %% List usernames on the configured board
+-doc """
+List usernames for all members on a board.
+Returns `{ok, [UsernameBin,...]}`.
+
+Example:
+```erlang
+{ok, Names} = trello:list_board_usernames(<<"BOARD_ID">>).
+```
+""".
 list_board_usernames(BoardId0) ->
     BoardId = to_bin(BoardId0),
     case do_get(["/boards/", BoardId, "/members"], [{<<"fields">>, <<"id,username">>}]) of
@@ -334,6 +410,14 @@ list_board_usernames(BoardId0) ->
     end.
 
 %% Resolve member id by username (case-insensitive)
+-doc """
+Resolve a member id by username (case-insensitive) on a board.
+
+Example:
+```erlang
+{ok, MemberId} = trello:get_member_id_by_username(<<"BOARD_ID">>, <<"someuser">>).
+```
+""".
 get_member_id_by_username(BoardId0, User0) ->
     BoardId = to_bin(BoardId0),
     U = normalize_color(User0), %% reuse lowercasing helper
@@ -348,6 +432,14 @@ get_member_id_by_username(BoardId0, User0) ->
     end.
 
 %% Custom Fields
+-doc """
+List custom field definitions for a board.
+
+Example:
+```erlang
+{ok, Fields} = trello:list_custom_fields(<<"BOARD_ID">>).
+```
+""".
 list_custom_fields(BoardId0) ->
     BoardId = to_bin(BoardId0),
     case do_get(["/boards/", BoardId, "/customFields"], []) of
@@ -355,6 +447,14 @@ list_custom_fields(BoardId0) ->
         Other -> Other
     end.
 
+-doc """
+Set a text custom field value on a card.
+
+Example:
+```erlang
+{ok, _} = trello:set_custom_field_text(<<"CARD_ID">>, <<"FIELD_ID">>, <<"hello">>).
+```
+""".
 set_custom_field_text(CardId0, FieldId0, Text0) ->
     CardId = to_bin(CardId0),
     FieldId = to_bin(FieldId0),
@@ -364,6 +464,14 @@ set_custom_field_text(CardId0, FieldId0, Text0) ->
     },
     do_put_body(["/card/", CardId, "/customField/", FieldId, "/item"], [], Body).
 
+-doc """
+Set a date custom field value (ISO-8601) on a card.
+
+Example:
+```erlang
+{ok, _} = trello:set_custom_field_date(<<"CARD_ID">>, <<"FIELD_ID">>, <<"2031-12-24T12:34:56.000Z">>).
+```
+""".
 set_custom_field_date(CardId0, FieldId0, DateIso8601) ->
     CardId = to_bin(CardId0),
     FieldId = to_bin(FieldId0),
@@ -373,6 +481,14 @@ set_custom_field_date(CardId0, FieldId0, DateIso8601) ->
     },
     do_put_body(["/card/", CardId, "/customField/", FieldId, "/item"], [], Body).
 
+-doc """
+Set a checkbox custom field value on a card (true/false).
+
+Example:
+```erlang
+{ok, _} = trello:set_custom_field_checkbox(<<"CARD_ID">>, <<"FIELD_ID">>, true).
+```
+""".
 set_custom_field_checkbox(CardId0, FieldId0, Bool) ->
     CardId = to_bin(CardId0),
     FieldId = to_bin(FieldId0),
@@ -382,6 +498,15 @@ set_custom_field_checkbox(CardId0, FieldId0, Bool) ->
     },
     do_put_body(["/card/", CardId, "/customField/", FieldId, "/item"], [], Body).
 
+-doc """
+Get a card with `customFieldItems=true` for reading custom field values.
+
+Example:
+```erlang
+{ok, Card} = trello:get_card_with_custom_fields(<<"CARD_ID">>),
+Items = maps:get(<<"customFieldItems">>, Card, []).
+```
+""".
 get_card_with_custom_fields(CardId0) ->
     CardId = to_bin(CardId0),
     do_get(["/cards/", CardId], [
@@ -389,12 +514,28 @@ get_card_with_custom_fields(CardId0) ->
         {<<"fields">>, <<"id">>}
     ]).
 
+-doc """
+List label objects on a card.
+
+Example:
+```erlang
+{ok, Labels} = trello:get_card_labels(<<"CARD_ID">>).
+```
+""".
 get_card_labels(CardId0) ->
     CardId = to_bin(CardId0),
     do_get(["/cards/", CardId, "/labels"], [
         {<<"fields">>, <<"id,color,name">>}
     ]).
 
+-doc """
+List member objects on a card.
+
+Example:
+```erlang
+{ok, Members} = trello:get_card_members(<<"CARD_ID">>).
+```
+""".
 get_card_members(CardId0) ->
     CardId = to_bin(CardId0),
     do_get(["/cards/", CardId, "/members"], [
@@ -402,17 +543,43 @@ get_card_members(CardId0) ->
     ]).
 
 %% Lists and Cards
+-doc """
+List lists on a board (id, name, closed, pos).
+
+Example:
+```erlang
+{ok, Lists} = trello:list_lists(<<"BOARD_ID">>).
+```
+""".
 list_lists(BoardId0) ->
     BoardId = to_bin(BoardId0),
     do_get(["/boards/", BoardId, "/lists"], [
         {<<"fields">>, <<"id,name,closed,pos">>}
     ]).
 
+-doc """
+List cards on a list with selectable `fields` and `limit`.
+
+Example:
+```erlang
+{ok, Cards} = trello:list_cards_for_list(<<"LIST_ID">>, #{fields => <<"id,name">>, limit => 100}).
+```
+""".
 list_cards_for_list(ListId0, Opts) ->
     ListId = to_bin(ListId0),
     Query = build_query_from_opts(Opts, [fields, limit]),
     do_get(["/lists/", ListId, "/cards"], Query).
 
+-doc """
+Dump a board into an Erlang term with lists and their cards.
+Returns `{ok, #{board => BoardMap, lists => [ListMap#{<<"cards">> := [CardMap,...]}]}}`.
+
+Example:
+```erlang
+{ok, Dump} = trello:dump_board(<<"BOARD_ID">>, #{}),
+Lists = maps:get(lists, Dump).
+```
+""".
 dump_board(BoardId0, _Opts) ->
     BoardId = to_bin(BoardId0),
     {ok, Board} = do_get(["/boards/", BoardId], [{<<"fields">>, <<"id,name">>}]),
@@ -435,28 +602,84 @@ build_query_from_opts(Opts, Keys) ->
 
 %% Ergonomic helpers
 
+-doc """
+Set card name.
+
+Example:
+```erlang
+{ok, _} = trello:set_name(<<"CARD_ID">>, <<"New Name">>).
+```
+""".
 set_name(CardId, Name) ->
     update_card(CardId, #{name => Name}).
 
+-doc """
+Set card description.
+
+Example:
+```erlang
+{ok, _} = trello:set_desc(<<"CARD_ID">>, <<"Some details">>).
+```
+""".
 set_desc(CardId, Desc) ->
     update_card(CardId, #{desc => Desc}).
 
+-doc """
+Set card due date (ISO-8601) or <<"null">>.
+
+Example:
+```erlang
+{ok, _} = trello:set_due(<<"CARD_ID">>, <<"2031-01-02T03:04:05.000Z">>).
+```
+""".
 set_due(CardId, DateIso8601OrNull) ->
     update_card(CardId, #{due => DateIso8601OrNull}).
 
+-doc """
+Clear card due date.
+
+Example:
+```erlang
+{ok, _} = trello:clear_due(<<"CARD_ID">>).
+```
+""".
 clear_due(CardId) ->
     update_card(CardId, #{due => <<"null">>}).
 
+-doc """
+Set card position (number or <<"top">>/<<"bottom">>).
+
+Example:
+```erlang
+{ok, _} = trello:set_pos(<<"CARD_ID">>, <<"top">>).
+```
+""".
 set_pos(CardId, Pos) ->
     %% Pos can be a number or one of <<"top">>, <<"bottom">>
     update_card(CardId, #{pos => Pos}).
 
+-doc """
+Add a label to a card by standard color on the given board.
+
+Example:
+```erlang
+{ok, _} = trello:add_label_by_color(<<"BOARD_ID">>, <<"CARD_ID">>, <<"red">>).
+```
+""".
 add_label_by_color(BoardId, CardId, Color) ->
     case get_label_id_by_color(BoardId, Color) of
         {ok, LabelId} -> add_label(CardId, LabelId);
         Error -> Error
     end.
 
+-doc """
+Add a member to a card by username on the given board.
+
+Example:
+```erlang
+{ok, _} = trello:add_member_by_username(<<"BOARD_ID">>, <<"CARD_ID">>, <<"someuser">>).
+```
+""".
 add_member_by_username(BoardId, CardId, Username) ->
     case get_member_id_by_username(BoardId, Username) of
         {ok, MemberId} -> add_member(CardId, MemberId);
