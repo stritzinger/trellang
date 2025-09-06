@@ -1,5 +1,66 @@
 -module(trello).
 
+-moduledoc """
+Trello REST client (board-agnostic)
+
+This module provides a small, pragmatic client for Trello's REST API focused on
+working with cards on existing boards. It is board-agnostic by design: only the
+API key and token are read from the application environment (`trellang.trello_key`
+and `trellang.trello_token`). All identifiers such as `board_id`, `list_id`,
+`member_id`, and `label_id` are passed as function parameters.
+
+Highlights
+- Authenticate using key/token from application env
+- Create/read/update cards (name, desc, due, pos)
+- Add labels by standard color (green/blue/yellow/red) and by discovered id
+- Add members by username (resolved to id), or by known id
+- Read and set custom fields (text/date/checkbox)
+- Discover lists and list cards; dump a board structure into an Erlang term
+
+Configuration
+- Keep a non-committed `dev.config` and run with `ERL_FLAGS="-config ./dev.config"`
+- The module reads only: `trellang.trello_key`, `trellang.trello_token`
+- Tests (outside this module) may read fixed ids like `board_id` and `list_id`
+
+Examples
+Create and update a card
+```erlang
+{ok, ListId} = application:get_env(trellang, list_id),
+{ok, BoardId} = application:get_env(trellang, board_id),
+
+{ok, Card} = trello:create_card(ListId, #{name => <<"Hello Trello">>}),
+CardId = maps:get(<<"id">>, Card),
+
+{ok, _} = trello:set_desc(CardId, <<"Created from Erlang">>),
+{ok, _} = trello:set_due(CardId, <<"2031-01-02T03:04:05.000Z">>),
+{ok, _} = trello:add_label_by_color(BoardId, CardId, <<"green">>),
+{ok, Card2} = trello:get_card(CardId).
+```
+
+Custom fields (text/date/checkbox)
+```erlang
+{ok, Fields} = trello:list_custom_fields(BoardId),
+TextId = maps:get(<<"id">>, hd([F || F <- Fields, maps:get(<<"type">>, F, <<>>) =:= <<"text">>])),
+{ok, Card} = trello:create_card(ListId, #{name => <<"CF demo">>}),
+CardId = maps:get(<<"id">>, Card),
+{ok, _} = trello:set_custom_field_text(CardId, TextId, <<"hello-cf">>),
+{ok, CardCF} = trello:get_card_with_custom_fields(CardId).
+```
+
+Lists and board dump
+```erlang
+{ok, Lists} = trello:list_lists(BoardId),
+{ok, Dump} = trello:dump_board(BoardId, #{}).
+%% Dump = #{ board => #{<<"id">> := _, <<"name">> := _}
+%%        , lists => [ #{<<"id">> := _, <<"name">> := _, <<"cards">> := [#{<<"id">> := _} | _]}
+%%                    | _ ] }.
+```
+
+Documentation
+This module uses OTP 27 documentation attributes (`-moduledoc`/`-doc`). See the
+official guidance for details on style and metadata.
+""".
+
 -export([
     me/0,
     get_card/1,
