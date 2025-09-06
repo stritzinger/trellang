@@ -3,13 +3,13 @@
 -export([
     me/0,
     get_card/1,
-    create_card/1,
+    create_card/2,
     update_card/2,
-    get_label_id_by_color/1,
+    get_label_id_by_color/2,
     add_label/2,
     add_member/2,
-    list_board_usernames/0,
-    get_member_id_by_username/1
+    list_board_usernames/1,
+    get_member_id_by_username/2
 ]).
 
 -define(BASE_URL, "https://api.trello.com/1").
@@ -51,18 +51,14 @@ get_card(CardId0) ->
         {<<"labels">>, <<"all">>}
     ]).
 
-create_card(Options) when is_map(Options) ->
-    case {application:get_env(trellang, list_id)} of
-        {undefined} -> {error, missing_list_id};
-        {{ok, ListId0}} ->
-            ListId = to_bin(ListId0),
-            NameBin = to_bin(maps:get(name, Options, <<>>)),
-            Query = [
-                {<<"idList">>, ListId},
-                {<<"name">>, NameBin}
-            ],
-            do_post("/cards", Query)
-    end.
+create_card(ListId0, Options) when is_map(Options) ->
+    ListId = to_bin(ListId0),
+    NameBin = to_bin(maps:get(name, Options, <<>>)),
+    Query = [
+        {<<"idList">>, ListId},
+        {<<"name">>, NameBin}
+    ],
+    do_post("/cards", Query).
 
 update_card(CardId0, Updates) when is_map(Updates) ->
     CardId = to_bin(CardId0),
@@ -191,17 +187,13 @@ to_bin(I) when is_integer(I) -> integer_to_binary(I).
 
 
 %% Utility: resolve a label id on the configured board by standard color or name
-get_label_id_by_color(Color0) ->
-    case application:get_env(trellang, board_id) of
-        undefined -> {error, missing_board_id};
-        {ok, BoardId0} ->
-            BoardId = to_bin(BoardId0),
-            Color = normalize_color(Color0),
-            case do_get(["/boards/", BoardId, "/labels"], [{<<"limit">>, <<"1000">>}]) of
-                {ok, Labels} when is_list(Labels) ->
-                    find_label_id_by_color_or_name(Labels, Color);
-                Other -> Other
-            end
+get_label_id_by_color(BoardId0, Color0) ->
+    BoardId = to_bin(BoardId0),
+    Color = normalize_color(Color0),
+    case do_get(["/boards/", BoardId, "/labels"], [{<<"limit">>, <<"1000">>}]) of
+        {ok, Labels} when is_list(Labels) ->
+            find_label_id_by_color_or_name(Labels, Color);
+        Other -> Other
     end.
 
 find_label_id_by_color_or_name(Labels, Color) ->
@@ -234,34 +226,26 @@ add_member(CardId0, MemberId0) ->
     do_post(["/cards/", CardId, "/idMembers"], [{<<"value">>, MemberId}]).
 
 %% List usernames on the configured board
-list_board_usernames() ->
-    case application:get_env(trellang, board_id) of
-        undefined -> {error, missing_board_id};
-        {ok, BoardId0} ->
-            BoardId = to_bin(BoardId0),
-            case do_get(["/boards/", BoardId, "/members"], [{<<"fields">>, <<"id,username">>}]) of
-                {ok, Members} when is_list(Members) ->
-                    {ok, [ maps:get(<<"username">>, M, <<>>) || M <- Members ]};
-                Other -> Other
-            end
+list_board_usernames(BoardId0) ->
+    BoardId = to_bin(BoardId0),
+    case do_get(["/boards/", BoardId, "/members"], [{<<"fields">>, <<"id,username">>}]) of
+        {ok, Members} when is_list(Members) ->
+            {ok, [ maps:get(<<"username">>, M, <<>>) || M <- Members ]};
+        Other -> Other
     end.
 
 %% Resolve member id by username (case-insensitive)
-get_member_id_by_username(User0) ->
-    case application:get_env(trellang, board_id) of
-        undefined -> {error, missing_board_id};
-        {ok, BoardId0} ->
-            BoardId = to_bin(BoardId0),
-            U = normalize_color(User0), %% reuse lowercasing helper
-            case do_get(["/boards/", BoardId, "/members"], [{<<"fields">>, <<"id,username">>}]) of
-                {ok, Members} when is_list(Members) ->
-                    Pairs = [{normalize_color(maps:get(<<"username">>, M, <<>>)), M} || M <- Members],
-                    case lists:keyfind(U, 1, Pairs) of
-                        {_, MFound} -> {ok, maps:get(<<"id">>, MFound)};
-                        false -> {error, not_found}
-                    end;
-                Other -> Other
-            end
+get_member_id_by_username(BoardId0, User0) ->
+    BoardId = to_bin(BoardId0),
+    U = normalize_color(User0), %% reuse lowercasing helper
+    case do_get(["/boards/", BoardId, "/members"], [{<<"fields">>, <<"id,username">>}]) of
+        {ok, Members} when is_list(Members) ->
+            Pairs = [{normalize_color(maps:get(<<"username">>, M, <<>>)), M} || M <- Members],
+            case lists:keyfind(U, 1, Pairs) of
+                {_, MFound} -> {ok, maps:get(<<"id">>, MFound)};
+                false -> {error, not_found}
+            end;
+        Other -> Other
     end.
 
 

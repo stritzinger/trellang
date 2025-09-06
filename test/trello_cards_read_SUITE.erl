@@ -22,7 +22,8 @@ read_existing_card(_Config) ->
         {_, undefined} -> {skip, "missing trellang.list_id in dev.config"};
         {_, _} ->
             %% Strategy: create a minimal card first, then fetch it via get_card/1
-            {ok, CardCreated} = trello:create_card(#{name => <<"CT read test">>}),
+            {ok, ListId0} = application:get_env(trellang, list_id),
+            {ok, CardCreated} = trello:create_card(ListId0, #{name => <<"CT read test">>}),
             CardId = maps:get(<<"id">>, CardCreated),
             {ok, Card} = trello:get_card(CardId),
             _ = maps:get(<<"id">>, Card),

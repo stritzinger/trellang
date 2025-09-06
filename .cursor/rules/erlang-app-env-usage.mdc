@@ -1,0 +1,23 @@
+---
+alwaysApply: true
+description: Limit application:get_env usage in trello.erl to credentials; pass other ids as params.
+globs:
+  - "src/trello.erl"
+  - "test/**/*.erl"
+---
+
+Project rule: Application env usage in trello.erl
+-------------------------------------------------
+
+- In `trello.erl`, only read `trellang.trello_key` and `trellang.trello_token` from the application environment.
+- Do NOT read board/list/member/label ids in `trello.erl`. The library API must be board-agnostic and support multiple boards concurrently.
+- Pass identifiers such as `board_id`, `list_id`, `member_id`, `label_id` as function parameters in the public API.
+
+Testing guidance:
+- Test suites may read `trellang.board_id`, `trellang.list_id`, and similar values from `dev.config` and pass them into `trello` API functions.
+- Keep the fixed ids confined to tests; do not bake test configuration into production/library code.
+
+Rationale:
+- Ensures the client is reusable across boards and contexts.
+- Prevents hidden global coupling and facilitates concurrent multi-board usage.
+
