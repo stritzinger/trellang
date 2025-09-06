@@ -1,0 +1,26 @@
+---
+alwaysApply: true
+description: Erlang documentation conventions using -moduledoc and -doc; require docs for exported functions and enable ExDoc generation.
+globs:
+  - "src/**/*.erl"
+  - "test/**/*.erl"
+---
+
+Project rule: Erlang documentation
+----------------------------------
+
+- Use `-moduledoc` at the top of every public module to describe purpose and usage. Prefer concise overview plus examples.
+- Document every exported function with `-doc` immediately preceding the function (or via external doc files). Include brief purpose and, when useful, a short example.
+- Prefer Markdown format (default). Use reserved metadata (e.g., `since`, `deprecated`) where applicable.
+- Hide non-API/internal modules with `-moduledoc false.` if needed. Do not mark exported API functions with `-doc false`.
+- For types/callbacks, document with `-doc` and provide `-spec`/`-type` where appropriate.
+
+References:
+- Erlang/OTP documentation attributes and ExDoc guidance: `https://erlang.org/documentation/doc-15.0-rc2/doc/system/documentation.html`
+
+Build integration:
+- Generate HTML/ePub docs with ExDoc via rebar3 plugin. Run: `rebar3 ex_doc`.
+- Ensure `rebar.config` includes:
+  - `{plugins, [rebar3_ex_doc]}.`
+  - `{ex_doc, [{extras, ["README.md"]}, {main, "README.md"}, {source_url, "https://github.com/stritzinger/trellang"}]}.`
+
