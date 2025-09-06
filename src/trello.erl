@@ -40,20 +40,8 @@ do_post(Path, QueryKVs) ->
 
 get_card(CardId0) ->
     CardId = to_bin(CardId0),
-    Fields = <<"id,name,idBoard">>,
-    case do_get(["/cards/", CardId], [{<<"fields">>, Fields}]) of
-        {ok, Map} ->
-            case application:get_env(trellang, board_id) of
-                undefined -> {error, missing_board_id};
-                {ok, BoardId0} ->
-                    BoardId = to_bin(BoardId0),
-                    case maps:get(<<"idBoard">>, Map, undefined) of
-                        BoardId -> {ok, Map};
-                        _Other -> {error, forbidden_board}
-                    end
-            end;
-        Other -> Other
-    end.
+    Fields = <<"id,name,desc,due,pos,idBoard">>,
+    do_get(["/cards/", CardId], [{<<"fields">>, Fields}]).
 
 create_card(Options) when is_map(Options) ->
     case {application:get_env(trellang, list_id)} of
@@ -70,13 +58,15 @@ create_card(Options) when is_map(Options) ->
 
 update_card(CardId0, Updates) when is_map(Updates) ->
     CardId = to_bin(CardId0),
-    Query = maps:fold(fun
+    Query0 = maps:fold(fun
         (name, V, Acc) -> [{<<"name">>, to_bin(V)} | Acc];
         (desc, V, Acc) -> [{<<"desc">>, to_bin(V)} | Acc];
         (due, V, Acc)  -> [{<<"due">>, to_bin(V)} | Acc];
         (pos, V, Acc)  -> [{<<"pos">>, to_bin(V)} | Acc];
         (_K, _V, Acc) -> Acc
     end, [], Updates),
+    Fields = <<"id,name,desc,due,pos,idBoard">>,
+    Query = [{<<"fields">>, Fields} | Query0],
     do_put(["/cards/", CardId], Query).
 
 build_url(Path, QueryKVs) ->
