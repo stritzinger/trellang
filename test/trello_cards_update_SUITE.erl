@@ -3,10 +3,10 @@
 -include_lib("common_test/include/ct.hrl").
 
 -export([suite/0, all/0, init_per_suite/1, end_per_suite/1]).
--export([update_name_and_desc/1, update_real_due_date/1]).
+-export([update_name_and_desc/1, update_real_due_date/1, update_labels_and_members/1]).
 
 suite() -> [{timetrap, {seconds, 90}}].
-all() -> [update_name_and_desc, update_real_due_date].
+all() -> [update_name_and_desc, update_real_due_date, update_labels_and_members].
 
 init_per_suite(Config) ->
     ok = ensure_started(ssl),
@@ -36,6 +36,32 @@ update_name_and_desc(_Config) ->
             <<"Updated desc">> = maps:get(<<"desc">>, Card),
             ok
     end.
+
+update_labels_and_members(_Config) ->
+    case {application:get_env(trellang, board_id), application:get_env(trellang, list_id),
+          application:get_env(trellang, label_id), application:get_env(trellang, member_id)} of
+        {undefined, _, _, _} -> {skip, "missing trellang.board_id in dev.config"};
+        {_, undefined, _, _} -> {skip, "missing trellang.list_id in dev.config"};
+        {_, _, undefined, _} -> {skip, "missing trellang.label_id in dev.config (optional test)"};
+        {_, _, _, undefined} -> {skip, "missing trellang.member_id in dev.config (optional test)"};
+        {_, _, {ok, LabelId0}, {ok, MemberId0}} ->
+            LabelId = to_bin(LabelId0),
+            MemberId = to_bin(MemberId0),
+            {ok, Card0} = trello:create_card(#{name => <<"CT labels/members test">>}),
+            CardId = maps:get(<<"id">>, Card0),
+            {ok, _U1} = trello:update_card(CardId, #{idLabels => [LabelId]}),
+            {ok, _U2} = trello:update_card(CardId, #{idMembers => [MemberId]}),
+            {ok, Card} = trello:get_card(CardId),
+            IdLabels = maps:get(<<"idLabels">>, Card),
+            true = lists:member(LabelId, IdLabels),
+            IdMembers = maps:get(<<"idMembers">>, Card),
+            true = lists:member(MemberId, IdMembers),
+            ok
+    end.
+
+to_bin(B) when is_binary(B) -> B;
+to_bin(L) when is_list(L) -> unicode:characters_to_binary(L);
+to_bin(A) when is_atom(A) -> atom_to_binary(A, utf8).
 
 update_real_due_date(_Config) ->
     case {application:get_env(trellang, board_id), application:get_env(trellang, list_id)} of

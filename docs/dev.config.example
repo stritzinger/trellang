@@ -11,6 +11,9 @@
       {cf_id_checkbox, undefined},
       {cf_id_date, undefined},
       {cf_id_list, undefined},
+      % optional ids to exercise label/member update tests
+      {label_id, undefined},
+      {member_id, undefined},
       % archive/delete test cards after each test when true
       {test_cleanup, false}
     ]}

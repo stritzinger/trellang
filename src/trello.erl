@@ -63,9 +63,16 @@ update_card(CardId0, Updates) when is_map(Updates) ->
         (desc, V, Acc) -> [{<<"desc">>, to_bin(V)} | Acc];
         (due, V, Acc)  -> [{<<"due">>, to_bin(V)} | Acc];
         (pos, V, Acc)  -> [{<<"pos">>, to_bin(V)} | Acc];
+        (idLabels, Vals, Acc) when is_list(Vals) ->
+            %% Trello supports idLabels[]=A&idLabels[]=B for replace
+            Pairs = [{<<"idLabels[]">>, to_bin(V)} || V <- Vals],
+            Pairs ++ Acc;
+        (idMembers, Vals, Acc) when is_list(Vals) ->
+            Pairs = [{<<"idMembers[]">>, to_bin(V)} || V <- Vals],
+            Pairs ++ Acc;
         (_K, _V, Acc) -> Acc
     end, [], Updates),
-    Fields = <<"id,name,desc,due,pos,idBoard">>,
+    Fields = <<"id,name,desc,due,pos,idBoard,idLabels,idMembers">>,
     Query = [{<<"fields">>, Fields} | Query0],
     do_put(["/cards/", CardId], Query).
 
