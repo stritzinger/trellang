@@ -1,5 +1,5 @@
 {application, trellang, [
-    {description, "An OTP application"},
+    {description, "Trello REST client for Erlang/OTP"},
     {vsn, "0.1.0"},
     {registered, []},
     {mod, {trellang_app, []}},
@@ -10,5 +10,5 @@
     {env, []},
     {modules, []},
     {licenses, ["Apache-2.0"]},
-    {links, []}
+    {links, [{"GitHub","https://github.com/stritzinger/trellang"}]}
  ]}.
