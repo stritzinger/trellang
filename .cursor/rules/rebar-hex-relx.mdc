@@ -12,7 +12,7 @@ Project rule: Rebar3 config for Hex, ExDoc, relx
 - Configure ExDoc with `{ex_doc, [...]}` including:
   - `{extras, ["README.md"]}` and `{main, "README.md"}`
   - `{source_url, "https://github.com/stritzinger/trellang"}`
-  - `{source_ref, "v<version>"}` matching the Git tag used for releases (e.g., `v0.1.0`).
+  - Omit `source_ref` (the plugin infers it from the tag/version; setting it can cause warnings).
 - Enable HexDocs publishing: `{hex, [{doc, ex_doc}]}` so `rebar3 hex publish` uploads docs.
 - Provide a minimal relx release definition for local runs:
   - `{relx, [{release, {trellang, semver}, [trellang]}]}`

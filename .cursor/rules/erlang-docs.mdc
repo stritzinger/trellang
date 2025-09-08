@@ -22,6 +22,7 @@ Build integration:
 - Generate HTML/ePub docs with ExDoc: `rebar3 ex_doc`.
 - Ensure `rebar.config` includes:
   - `{project_plugins, [rebar3_ex_doc]}.`
-  - `{ex_doc, [{extras, ["README.md"]}, {main, "README.md"}, {source_url, "https://github.com/stritzinger/trellang"}, {source_ref, "v<version>"}]}.`
+  - `{ex_doc, [{extras, ["README.md"]}, {main, "README.md"}, {source_url, "https://github.com/stritzinger/trellang"} ]}.`
+  - Omit `source_ref` and rely on plugin defaults (avoids warnings).
   - `{hex, [{doc, ex_doc}]}.` (upload docs to HexDocs on publish)
 
