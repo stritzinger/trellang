@@ -1,0 +1,25 @@
+---
+alwaysApply: true
+description: Rebar3 configuration conventions for Hex publishing, ExDoc, and relx.
+globs:
+  - "rebar.config"
+---
+
+Project rule: Rebar3 config for Hex, ExDoc, relx
+------------------------------------------------
+
+- Use `{project_plugins, [rebar3_hex, rebar3_ex_doc]}` rather than `plugins` so downstream users of the library don't require plugins to build their apps.
+- Configure ExDoc with `{ex_doc, [...]}` including:
+  - `{extras, ["README.md"]}` and `{main, "README.md"}`
+  - `{source_url, "https://github.com/stritzinger/trellang"}`
+  - `{source_ref, "v<version>"}` matching the Git tag used for releases (e.g., `v0.1.0`).
+- Enable HexDocs publishing: `{hex, [{doc, ex_doc}]}` so `rebar3 hex publish` uploads docs.
+- Provide a minimal relx release definition for local runs:
+  - `{relx, [{release, {trellang, semver}, [trellang]}]}`
+
+Notes:
+- Bump `source_ref` to match the tag prior to publishing a new version.
+- Ensure `src/trellang.app.src` `vsn` matches the release version.
+- To publish:
+  1) Tag `vX.Y.Z` in git.
+  2) `rebar3 hex publish` (docs will build via ExDoc and upload to HexDocs).

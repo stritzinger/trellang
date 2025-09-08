@@ -19,8 +19,9 @@ References:
 - Erlang/OTP documentation attributes and ExDoc guidance: `https://erlang.org/documentation/doc-15.0-rc2/doc/system/documentation.html`
 
 Build integration:
-- Generate HTML/ePub docs with ExDoc via rebar3 plugin. Run: `rebar3 ex_doc`.
+- Generate HTML/ePub docs with ExDoc: `rebar3 ex_doc`.
 - Ensure `rebar.config` includes:
-  - `{plugins, [rebar3_ex_doc]}.`
-  - `{ex_doc, [{extras, ["README.md"]}, {main, "README.md"}, {source_url, "https://github.com/stritzinger/trellang"}]}.`
+  - `{project_plugins, [rebar3_ex_doc]}.`
+  - `{ex_doc, [{extras, ["README.md"]}, {main, "README.md"}, {source_url, "https://github.com/stritzinger/trellang"}, {source_ref, "v<version>"}]}.`
+  - `{hex, [{doc, ex_doc}]}.` (upload docs to HexDocs on publish)
 
