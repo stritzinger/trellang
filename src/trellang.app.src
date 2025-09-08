@@ -1,6 +1,6 @@
 {application, trellang, [
     {description, "Trello REST client for Erlang/OTP"},
-    {vsn, "0.1.0"},
+    {vsn, "1.0.0"},
     {registered, []},
     {mod, {trellang_app, []}},
     {applications, [
