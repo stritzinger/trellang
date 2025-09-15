@@ -88,7 +88,9 @@ official guidance for details on style and metadata.
     set_custom_field_checkbox/3,
     list_lists/1,
     list_cards_for_list/2,
-    dump_board/2
+    dump_board/2,
+    %% Checklists
+    list_checklists/1
 ]).
 
 -define(BASE_URL, "https://api.trello.com/1").
@@ -599,6 +601,20 @@ build_query_from_opts(Opts, Keys) ->
             false -> Acc
         end
     end, [], Opts).
+
+%% Checklists
+
+-doc """
+List checklists for a card.
+
+Example:
+```erlang
+{ok, Checklists} = trello:list_checklists(<<"CARD_ID">>).
+```
+""".
+list_checklists(CardId0) ->
+    CardId = to_bin(CardId0),
+    do_get(["/cards/", CardId, "/checklists"], []).
 
 %% Ergonomic helpers
 

@@ -89,6 +89,9 @@ TDD Steps
 10) Documentation and examples
    - Add cookbook snippets to README/docs for create/update/list and custom field write/read.
 
+11) Checklists (see detailed plan)
+    - Follow the dedicated plan in `docs/trello-checklists-tdd-plan.md` for checklist and check item CRUD and state updates.
+
 Acceptance Criteria
 -------------------
 - Health: `/members/me` succeeds when creds provided.
