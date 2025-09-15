@@ -93,7 +93,13 @@ official guidance for details on style and metadata.
     list_checklists/1,
     create_checklist/2,
     rename_checklist/2,
-    set_checklist_pos/2
+    set_checklist_pos/2,
+    %% Check items
+    add_check_item/3,
+    rename_check_item/3,
+    set_check_item_state/3,
+    set_check_item_pos/3,
+    delete_check_item/2
 ]).
 
 -define(BASE_URL, "https://api.trello.com/1").
@@ -310,6 +316,50 @@ do_write_with_retry(Method, Url, Headers, ContentType, Body, HTTPOpts, ReqOpts, 
         {error, Reason} -> {error, Reason}
     end;
 do_write_with_retry(_M, _U, _H, _C, _B, _O, _R, 0, _Backoff) ->
+    {error, retry_exhausted}.
+
+do_delete(Path, QueryKVs) ->
+    {ok, Key, Token} = get_credentials(),
+    Query = [{<<"key">>, Key}, {<<"token">>, Token} | QueryKVs],
+    Url = build_url(Path, Query),
+    http_delete_json(Url).
+
+http_delete_json(Url) ->
+    case http_delete_json_sni(Url, "api.trello.com") of
+        {error, {failed_connect, _}} ->
+            case http_delete_json_sni(Url, "trello.com") of
+                {error, _}=E2 -> E2;
+                Ok -> Ok
+            end;
+        Other -> Other
+    end.
+
+http_delete_json_sni(Url, SNIHost) ->
+    SSLOpts = [
+        {server_name_indication, SNIHost},
+        {verify, verify_peer},
+        {cacerts, public_key:cacerts_get()}
+    ],
+    HTTPOpts = [{ssl, SSLOpts}],
+    Headers = [],
+    Body = <<>>, %% usually unused for DELETE
+    ReqOpts = [{body_format, binary}],
+    do_delete_with_retry(delete, Url, Headers, "application/x-www-form-urlencoded", Body, HTTPOpts, ReqOpts, 5, 0).
+
+do_delete_with_retry(Method, Url, Headers, ContentType, Body, HTTPOpts, ReqOpts, Attempts, Backoff) when Attempts > 0 ->
+    case httpc:request(Method, {Url, Headers, ContentType, Body}, HTTPOpts, ReqOpts) of
+        {ok, {{_Vsn, Code, _}, _Headers, RespBody}} when Code =:= 200; Code =:= 201; Code =:= 204 ->
+            %% Some DELETE endpoints return empty body; normalize to {}
+            DecBody = case RespBody of <<>> -> <<"{}">>; _ -> RespBody end,
+            {ok, json:decode(DecBody)};
+        {ok, {{_Vsn, Code, _}, _Headers, _RespBody}} when Code =:= 429; Code >= 500 ->
+            timer:sleep(Backoff + jitter()),
+            do_delete_with_retry(Method, Url, Headers, ContentType, Body, HTTPOpts, ReqOpts, Attempts - 1, next_backoff(Backoff));
+        {ok, {{_Vsn, Code2, _}, _Headers2, RespBody2}} ->
+            {error, {http_error, Code2, RespBody2}};
+        {error, Reason} -> {error, Reason}
+    end;
+do_delete_with_retry(_M, _U, _H, _C, _B, _O, _R, 0, _Backoff) ->
     {error, retry_exhausted}.
 
 jitter() ->
@@ -653,6 +703,70 @@ set_checklist_pos(ChecklistId0, Pos0) ->
     do_put(["/checklists/", ChecklistId], [
         {<<"pos">>, Pos}
     ]).
+
+%% Check items
+
+-doc """
+Add a check item to a checklist. Opts may include pos (top/bottom/number) and checked (true/false).
+""".
+add_check_item(ChecklistId0, Name0, Opts) when is_map(Opts) ->
+    ChecklistId = to_bin(ChecklistId0),
+    Name = to_bin(Name0),
+    Query0 = [{<<"name">>, Name} |
+              case maps:get(pos, Opts, undefined) of
+                  undefined -> [];
+                  P -> [{<<"pos">>, to_bin(P)}]
+              end],
+    Query = case maps:get(checked, Opts, undefined) of
+                true -> [{<<"checked">>, <<"true">>} | Query0];
+                false -> [{<<"checked">>, <<"false">>} | Query0];
+                _ -> Query0
+            end,
+    do_post(["/checklists/", ChecklistId, "/checkItems"], lists:reverse(Query)).
+
+-doc """
+Rename a check item (requires card id and check item id).
+""".
+rename_check_item(CardId0, CheckItemId0, NewName0) ->
+    CardId = to_bin(CardId0),
+    CheckItemId = to_bin(CheckItemId0),
+    NewName = to_bin(NewName0),
+    do_put(["/cards/", CardId, "/checkItem/", CheckItemId], [
+        {<<"name">>, NewName}
+    ]).
+
+-doc """
+Set a check item state: complete|incomplete.
+""".
+set_check_item_state(CardId0, CheckItemId0, State) ->
+    CardId = to_bin(CardId0),
+    CheckItemId = to_bin(CheckItemId0),
+    StateBin = case State of complete -> <<"complete">>; _ -> <<"incomplete">> end,
+    do_put(["/cards/", CardId, "/checkItem/", CheckItemId], [
+        {<<"state">>, StateBin}
+    ]).
+
+-doc """
+Reorder a check item; pos is top/bottom/number.
+""".
+set_check_item_pos(CardId0, CheckItemId0, Pos0) ->
+    CardId = to_bin(CardId0),
+    CheckItemId = to_bin(CheckItemId0),
+    Pos = to_bin(Pos0),
+    do_put(["/cards/", CardId, "/checkItem/", CheckItemId], [
+        {<<"pos">>, Pos}
+    ]).
+
+-doc """
+Delete a check item from a checklist.
+""".
+delete_check_item(ChecklistId0, CheckItemId0) ->
+    ChecklistId = to_bin(ChecklistId0),
+    CheckItemId = to_bin(CheckItemId0),
+    case do_delete(["/checklists/", ChecklistId, "/checkItems/", CheckItemId], []) of
+        {ok, _} -> ok;
+        {error, _}=E -> E
+    end.
 
 %% Ergonomic helpers
 

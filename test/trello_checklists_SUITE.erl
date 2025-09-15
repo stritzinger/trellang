@@ -1,14 +1,15 @@
 -module(trello_checklists_SUITE).
 
 -export([suite/0, all/0, init_per_suite/1, end_per_suite/1, init_per_testcase/2, end_per_testcase/2]).
--export([list_empty_on_new_card/1, create_checklist_on_card/1, rename_and_reorder_checklist/1]).
+-export([list_empty_on_new_card/1, create_checklist_on_card/1, rename_and_reorder_checklist/1, check_item_crud/1]).
 
 -include_lib("common_test/include/ct.hrl").
 
 all() ->
     [list_empty_on_new_card,
      create_checklist_on_card,
-     rename_and_reorder_checklist].
+     rename_and_reorder_checklist,
+     check_item_crud].
 
 suite() -> [{timetrap, {seconds, 90}}].
 
@@ -39,6 +40,29 @@ list_empty_on_new_card(_Config) ->
             {ok, Checklists} = trello:list_checklists(CardId),
             true = is_list(Checklists),
             [] = Checklists,
+            ok
+    end.
+
+check_item_crud(_Config) ->
+    case {application:get_env(trellang, board_id), application:get_env(trellang, list_id)} of
+        {undefined, _} -> {skip, "missing trellang.board_id in dev.config"};
+        {_, undefined} -> {skip, "missing trellang.list_id in dev.config"};
+        {_, _} ->
+            {ok, ListId} = application:get_env(trellang, list_id),
+            {ok, #{<<"id">> := CardId}} = trello:create_card(ListId, #{name => <<"checkitems-crud">>}),
+            register_cleanup_card(CardId),
+            {ok, CL} = trello:create_checklist(CardId, <<"Todos">>),
+            CLId = maps:get(<<"id">>, CL),
+            {ok, ItemA} = trello:add_check_item(CLId, <<"one">>, #{}),
+            IAId = maps:get(<<"id">>, ItemA),
+            {ok, ItemB} = trello:add_check_item(CLId, <<"two">>, #{pos => <<"top">>}),
+            IBId = maps:get(<<"id">>, ItemB),
+            {ok, ItemB2} = trello:rename_check_item(CardId, IBId, <<"two-renamed">>),
+            <<"two-renamed">> = maps:get(<<"name">>, ItemB2),
+            {ok, ItemB3} = trello:set_check_item_state(CardId, IBId, complete),
+            <<"complete">> = maps:get(<<"state">>, ItemB3),
+            {ok, _ItemB4} = trello:set_check_item_pos(CardId, IBId, <<"bottom">>),
+            ok = trello:delete_check_item(CLId, IAId),
             ok
     end.
 
