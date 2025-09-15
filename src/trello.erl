@@ -90,7 +90,8 @@ official guidance for details on style and metadata.
     list_cards_for_list/2,
     dump_board/2,
     %% Checklists
-    list_checklists/1
+    list_checklists/1,
+    create_checklist/2
 ]).
 
 -define(BASE_URL, "https://api.trello.com/1").
@@ -615,6 +616,21 @@ Example:
 list_checklists(CardId0) ->
     CardId = to_bin(CardId0),
     do_get(["/cards/", CardId, "/checklists"], []).
+
+-doc """
+Create a checklist on a card.
+
+Example:
+```erlang
+{ok, CL} = trello:create_checklist(<<"CARD_ID">>, <<"Todo">>).
+```
+""".
+create_checklist(CardId0, Name0) ->
+    CardId = to_bin(CardId0),
+    Name = to_bin(Name0),
+    do_post(["/cards/", CardId, "/checklists"], [
+        {<<"name">>, Name}
+    ]).
 
 %% Ergonomic helpers
 

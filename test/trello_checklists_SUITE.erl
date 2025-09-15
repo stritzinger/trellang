@@ -1,12 +1,13 @@
 -module(trello_checklists_SUITE).
 
 -export([suite/0, all/0, init_per_suite/1, end_per_suite/1, init_per_testcase/2, end_per_testcase/2]).
--export([list_empty_on_new_card/1]).
+-export([list_empty_on_new_card/1, create_checklist_on_card/1]).
 
 -include_lib("common_test/include/ct.hrl").
 
 all() ->
-    [list_empty_on_new_card].
+    [list_empty_on_new_card,
+     create_checklist_on_card].
 
 suite() -> [{timetrap, {seconds, 90}}].
 
@@ -37,6 +38,23 @@ list_empty_on_new_card(_Config) ->
             {ok, Checklists} = trello:list_checklists(CardId),
             true = is_list(Checklists),
             [] = Checklists,
+            ok
+    end.
+
+create_checklist_on_card(_Config) ->
+    case {application:get_env(trellang, board_id), application:get_env(trellang, list_id)} of
+        {undefined, _} -> {skip, "missing trellang.board_id in dev.config"};
+        {_, undefined} -> {skip, "missing trellang.list_id in dev.config"};
+        {_, _} ->
+            {ok, ListId} = application:get_env(trellang, list_id),
+            {ok, #{<<"id">> := CardId}} = trello:create_card(ListId, #{name => <<"checklists-create">>}),
+            register_cleanup_card(CardId),
+            {ok, CL} = trello:create_checklist(CardId, <<"Todo">>),
+            _ = maps:get(<<"id">>, CL),
+            CardId = maps:get(<<"idCard">>, CL),
+            <<"Todo">> = maps:get(<<"name">>, CL),
+            {ok, All} = trello:list_checklists(CardId),
+            true = lists:any(fun(#{<<"id">> := Id}) -> Id =:= maps:get(<<"id">>, CL); (_) -> false end, All),
             ok
     end.
 
