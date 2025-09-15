@@ -91,7 +91,9 @@ official guidance for details on style and metadata.
     dump_board/2,
     %% Checklists
     list_checklists/1,
-    create_checklist/2
+    create_checklist/2,
+    rename_checklist/2,
+    set_checklist_pos/2
 ]).
 
 -define(BASE_URL, "https://api.trello.com/1").
@@ -630,6 +632,26 @@ create_checklist(CardId0, Name0) ->
     Name = to_bin(Name0),
     do_post(["/cards/", CardId, "/checklists"], [
         {<<"name">>, Name}
+    ]).
+
+-doc """
+Rename a checklist by id.
+""".
+rename_checklist(ChecklistId0, NewName0) ->
+    ChecklistId = to_bin(ChecklistId0),
+    NewName = to_bin(NewName0),
+    do_put(["/checklists/", ChecklistId], [
+        {<<"name">>, NewName}
+    ]).
+
+-doc """
+Set checklist position (number or top/bottom).
+""".
+set_checklist_pos(ChecklistId0, Pos0) ->
+    ChecklistId = to_bin(ChecklistId0),
+    Pos = to_bin(Pos0),
+    do_put(["/checklists/", ChecklistId], [
+        {<<"pos">>, Pos}
     ]).
 
 %% Ergonomic helpers

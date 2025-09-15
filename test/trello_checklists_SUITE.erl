@@ -1,13 +1,14 @@
 -module(trello_checklists_SUITE).
 
 -export([suite/0, all/0, init_per_suite/1, end_per_suite/1, init_per_testcase/2, end_per_testcase/2]).
--export([list_empty_on_new_card/1, create_checklist_on_card/1]).
+-export([list_empty_on_new_card/1, create_checklist_on_card/1, rename_and_reorder_checklist/1]).
 
 -include_lib("common_test/include/ct.hrl").
 
 all() ->
     [list_empty_on_new_card,
-     create_checklist_on_card].
+     create_checklist_on_card,
+     rename_and_reorder_checklist].
 
 suite() -> [{timetrap, {seconds, 90}}].
 
@@ -38,6 +39,24 @@ list_empty_on_new_card(_Config) ->
             {ok, Checklists} = trello:list_checklists(CardId),
             true = is_list(Checklists),
             [] = Checklists,
+            ok
+    end.
+
+rename_and_reorder_checklist(_Config) ->
+    case {application:get_env(trellang, board_id), application:get_env(trellang, list_id)} of
+        {undefined, _} -> {skip, "missing trellang.board_id in dev.config"};
+        {_, undefined} -> {skip, "missing trellang.list_id in dev.config"};
+        {_, _} ->
+            {ok, ListId} = application:get_env(trellang, list_id),
+            {ok, #{<<"id">> := CardId}} = trello:create_card(ListId, #{name => <<"checklists-rename">>}),
+            register_cleanup_card(CardId),
+            {ok, CL0} = trello:create_checklist(CardId, <<"Initial">>),
+            CLId = maps:get(<<"id">>, CL0),
+            {ok, CL1} = trello:rename_checklist(CLId, <<"Renamed">>),
+            <<"Renamed">> = maps:get(<<"name">>, CL1),
+            {ok, _CL2} = trello:set_checklist_pos(CLId, <<"top">>),
+            {ok, Lists} = trello:list_checklists(CardId),
+            true = is_list(Lists),
             ok
     end.
 
