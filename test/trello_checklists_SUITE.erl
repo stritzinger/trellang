@@ -1,38 +1,71 @@
 -module(trello_checklists_SUITE).
 
--compile(export_all).
+-export([suite/0, all/0, init_per_suite/1, end_per_suite/1, init_per_testcase/2, end_per_testcase/2]).
+-export([list_empty_on_new_card/1]).
 
 -include_lib("common_test/include/ct.hrl").
 
 all() ->
     [list_empty_on_new_card].
 
+suite() -> [{timetrap, {seconds, 90}}].
+
 init_per_suite(Config) ->
-    application:ensure_all_started(inets),
-    application:ensure_all_started(ssl),
+    ok = ensure_started(ssl),
+    ok = ensure_started(inets),
+    ok = ensure_loaded(trellang),
+    Config.
+
+end_per_suite(_Config) -> ok.
+
+init_per_testcase(_TC, Config) ->
+    erlang:erase(cleanup_cards),
     Config.
 
 end_per_testcase(_TC, Config) ->
-    %% Cleanup is handled by per-test logic if enabled via trellang.test_cleanup
+    maybe_cleanup_created_cards(),
     Config.
 
 list_empty_on_new_card(_Config) ->
-    {ok, ListId} = application:get_env(trellang, list_id),
-    {ok, #{<<"id">> := CardId}} = trello:create_card(ListId, #{name => <<"checklists-baseline">>}),
-    try
-        {ok, Checklists} = trello:list_checklists(CardId),
-        true = is_list(Checklists),
-        [] = Checklists
-    after
-        maybe_cleanup_card(CardId)
+    case {application:get_env(trellang, board_id), application:get_env(trellang, list_id)} of
+        {undefined, _} -> {skip, "missing trellang.board_id in dev.config"};
+        {_, undefined} -> {skip, "missing trellang.list_id in dev.config"};
+        {_, _} ->
+            {ok, ListId} = application:get_env(trellang, list_id),
+            {ok, #{<<"id">> := CardId}} = trello:create_card(ListId, #{name => <<"checklists-baseline">>}),
+            register_cleanup_card(CardId),
+            {ok, Checklists} = trello:list_checklists(CardId),
+            true = is_list(Checklists),
+            [] = Checklists,
+            ok
     end.
 
-maybe_cleanup_card(CardId) ->
-    case application:get_env(trellang, test_cleanup) of
-        {ok, true} ->
-            _ = trello:update_card(CardId, #{closed => true}),
-            ok;
+register_cleanup_card(CardId) ->
+    Cards = erlang:get(cleanup_cards),
+    case Cards of
+        undefined -> erlang:put(cleanup_cards, [CardId]);
+        L when is_list(L) -> erlang:put(cleanup_cards, [CardId | L])
+    end,
+    ok.
+
+maybe_cleanup_created_cards() ->
+    case {application:get_env(trellang, test_cleanup), erlang:get(cleanup_cards)} of
+        {{ok, true}, Cards} when is_list(Cards) -> lists:foreach(fun(C) -> _ = trello:update_card(C, #{closed => true}) end, Cards), ok;
         _ -> ok
+    end.
+
+ensure_started(App) ->
+    case application:ensure_all_started(App) of
+        {ok, _} -> ok;
+        {error, {already_started, _}} -> ok;
+        {error, Reason} -> error(Reason)
+    end.
+
+ensure_loaded(App) ->
+    case application:load(App) of
+        ok -> ok;
+        {error, {already_loaded, App}} -> ok;
+        {error, Reason} -> error(Reason)
     end.
 
 
