@@ -54,6 +54,10 @@ dump_board_structure(_Config) ->
             _ = maps:get(<<"name">>, Board),
             Lists = maps:get(lists, Dump),
             true = is_list(Lists),
+            %% Also exercise include_checklists option path for coverage
+            {ok, Dump2} = trello:dump_board(BoardId, #{include_checklists => true}),
+            _ = maps:get(board, Dump2),
+            _ = maps:get(lists, Dump2),
             ok
     end.
 

@@ -99,7 +99,9 @@ official guidance for details on style and metadata.
     rename_check_item/3,
     set_check_item_state/3,
     set_check_item_pos/3,
-    delete_check_item/2
+    delete_check_item/2,
+    set_check_item_due/3,
+    assign_check_item_member/3
 ]).
 
 -define(BASE_URL, "https://api.trello.com/1").
@@ -643,7 +645,19 @@ dump_board(BoardId0, _Opts) ->
       fun(L) ->
           Lid = maps:get(<<"id">>, L),
           {ok, Cards} = list_cards_for_list(Lid, #{fields => <<"id,name,idList">>, limit => 1000}),
-          L#{ <<"cards">> => Cards }
+          L2 = L#{ <<"cards">> => Cards },
+          L3 = case maps:get(include_checklists, _Opts, false) of
+                   true ->
+                       %% For each card, attach its checklists
+                       CardsWithCL = [
+                           begin
+                               {ok, CLs} = list_checklists(maps:get(<<"id">>, C)),
+                               C#{ <<"checklists">> => CLs }
+                           end || C <- Cards],
+                       L2#{ <<"cards">> => CardsWithCL };
+                   _ -> L2
+               end,
+          L3
       end, Lists),
     {ok, #{ board => Board, lists => CardsPerList }}.
 
@@ -766,6 +780,34 @@ delete_check_item(ChecklistId0, CheckItemId0) ->
     case do_delete(["/checklists/", ChecklistId, "/checkItems/", CheckItemId], []) of
         {ok, _} -> ok;
         {error, _}=E -> E
+    end.
+
+-doc """
+Set a check item due date (ISO-8601) or null.
+""".
+set_check_item_due(CardId0, CheckItemId0, Due0) ->
+    CardId = to_bin(CardId0),
+    CheckItemId = to_bin(CheckItemId0),
+    DueBin = case Due0 of null -> <<"null">>; undefined -> <<"null">>; _ -> to_bin(Due0) end,
+    do_put(["/cards/", CardId, "/checkItem/", CheckItemId], [
+        {<<"due">>, DueBin}
+    ]).
+
+-doc """
+Assign or unassign a member to a check item. Pass undefined to unassign.
+""".
+assign_check_item_member(CardId0, CheckItemId0, MemberIdOrUndefined) ->
+    CardId = to_bin(CardId0),
+    CheckItemId = to_bin(CheckItemId0),
+    case MemberIdOrUndefined of
+        undefined ->
+            do_put(["/cards/", CardId, "/checkItem/", CheckItemId], [
+                {<<"idMember">>, <<"null">>}
+            ]);
+        MemberId ->
+            do_put(["/cards/", CardId, "/checkItem/", CheckItemId], [
+                {<<"idMember">>, to_bin(MemberId)}
+            ])
     end.
 
 %% Ergonomic helpers
