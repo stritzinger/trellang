@@ -16,6 +16,7 @@ Highlights
 - Add members by username (resolved to id), or by known id
 - Read and set custom fields (text/date/checkbox)
 - Discover lists and list cards; dump a board structure into an Erlang term
+- Manage checklists and check items (create/rename/reorder; add/rename/toggle/reorder/delete; due/assignee)
 
 Configuration
 - Keep a non-committed `dev.config` and run with `ERL_FLAGS="-config ./dev.config"`
@@ -702,6 +703,10 @@ create_checklist(CardId0, Name0) ->
 Rename a checklist by id.
 """.
 rename_checklist(ChecklistId0, NewName0) ->
+    %% Example:
+    %% ```erlang
+    %% {ok, _} = trello:rename_checklist(<<"CHECKLIST_ID">>, <<"New Name">>).
+    %% ```
     ChecklistId = to_bin(ChecklistId0),
     NewName = to_bin(NewName0),
     do_put(["/checklists/", ChecklistId], [
@@ -712,6 +717,10 @@ rename_checklist(ChecklistId0, NewName0) ->
 Set checklist position (number or top/bottom).
 """.
 set_checklist_pos(ChecklistId0, Pos0) ->
+    %% Example:
+    %% ```erlang
+    %% {ok, _} = trello:set_checklist_pos(<<"CHECKLIST_ID">>, <<"top">>).
+    %% ```
     ChecklistId = to_bin(ChecklistId0),
     Pos = to_bin(Pos0),
     do_put(["/checklists/", ChecklistId], [
@@ -724,6 +733,10 @@ set_checklist_pos(ChecklistId0, Pos0) ->
 Add a check item to a checklist. Opts may include pos (top/bottom/number) and checked (true/false).
 """.
 add_check_item(ChecklistId0, Name0, Opts) when is_map(Opts) ->
+    %% Example:
+    %% ```erlang
+    %% {ok, Item} = trello:add_check_item(<<"CHECKLIST_ID">>, <<"Buy milk">>, #{pos => <<"top">>, checked => false}).
+    %% ```
     ChecklistId = to_bin(ChecklistId0),
     Name = to_bin(Name0),
     Query0 = [{<<"name">>, Name} |
@@ -742,6 +755,10 @@ add_check_item(ChecklistId0, Name0, Opts) when is_map(Opts) ->
 Rename a check item (requires card id and check item id).
 """.
 rename_check_item(CardId0, CheckItemId0, NewName0) ->
+    %% Example:
+    %% ```erlang
+    %% {ok, _} = trello:rename_check_item(<<"CARD_ID">>, <<"CHECKITEM_ID">>, <<"Buy oat milk">>).
+    %% ```
     CardId = to_bin(CardId0),
     CheckItemId = to_bin(CheckItemId0),
     NewName = to_bin(NewName0),
@@ -753,6 +770,10 @@ rename_check_item(CardId0, CheckItemId0, NewName0) ->
 Set a check item state: complete|incomplete.
 """.
 set_check_item_state(CardId0, CheckItemId0, State) ->
+    %% Example:
+    %% ```erlang
+    %% {ok, _} = trello:set_check_item_state(<<"CARD_ID">>, <<"CHECKITEM_ID">>, complete).
+    %% ```
     CardId = to_bin(CardId0),
     CheckItemId = to_bin(CheckItemId0),
     StateBin = case State of complete -> <<"complete">>; _ -> <<"incomplete">> end,
@@ -764,6 +785,10 @@ set_check_item_state(CardId0, CheckItemId0, State) ->
 Reorder a check item; pos is top/bottom/number.
 """.
 set_check_item_pos(CardId0, CheckItemId0, Pos0) ->
+    %% Example:
+    %% ```erlang
+    %% {ok, _} = trello:set_check_item_pos(<<"CARD_ID">>, <<"CHECKITEM_ID">>, <<"bottom">>).
+    %% ```
     CardId = to_bin(CardId0),
     CheckItemId = to_bin(CheckItemId0),
     Pos = to_bin(Pos0),
@@ -775,6 +800,10 @@ set_check_item_pos(CardId0, CheckItemId0, Pos0) ->
 Delete a check item from a checklist.
 """.
 delete_check_item(ChecklistId0, CheckItemId0) ->
+    %% Example:
+    %% ```erlang
+    %% ok = trello:delete_check_item(<<"CHECKLIST_ID">>, <<"CHECKITEM_ID">>).
+    %% ```
     ChecklistId = to_bin(ChecklistId0),
     CheckItemId = to_bin(CheckItemId0),
     case do_delete(["/checklists/", ChecklistId, "/checkItems/", CheckItemId], []) of
@@ -786,6 +815,11 @@ delete_check_item(ChecklistId0, CheckItemId0) ->
 Set a check item due date (ISO-8601) or null.
 """.
 set_check_item_due(CardId0, CheckItemId0, Due0) ->
+    %% Example:
+    %% ```erlang
+    %% {ok, _} = trello:set_check_item_due(<<"CARD_ID">>, <<"CHECKITEM_ID">>, <<"2031-01-02T03:04:05.000Z">>).
+    %% {ok, _} = trello:set_check_item_due(<<"CARD_ID">>, <<"CHECKITEM_ID">>, null).
+    %% ```
     CardId = to_bin(CardId0),
     CheckItemId = to_bin(CheckItemId0),
     DueBin = case Due0 of null -> <<"null">>; undefined -> <<"null">>; _ -> to_bin(Due0) end,
@@ -797,6 +831,11 @@ set_check_item_due(CardId0, CheckItemId0, Due0) ->
 Assign or unassign a member to a check item. Pass undefined to unassign.
 """.
 assign_check_item_member(CardId0, CheckItemId0, MemberIdOrUndefined) ->
+    %% Example:
+    %% ```erlang
+    %% {ok, _} = trello:assign_check_item_member(<<"CARD_ID">>, <<"CHECKITEM_ID">>, <<"MEMBER_ID">>).
+    %% {ok, _} = trello:assign_check_item_member(<<"CARD_ID">>, <<"CHECKITEM_ID">>, undefined).
+    %% ```
     CardId = to_bin(CardId0),
     CheckItemId = to_bin(CheckItemId0),
     case MemberIdOrUndefined of
