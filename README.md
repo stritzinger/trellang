@@ -10,7 +10,35 @@ Build
 
 Configuration
 -------------
-Use a non-committed `dev.config` to provide your Trello API key and token. See `docs/dev.config.example`.
+trellang reads your Trello credentials from the Erlang application environment.
+
+- Required keys:
+  - `trellang.trello_key`
+  - `trellang.trello_token`
+
+Recommended: keep credentials in a non‑committed `dev.config` and run with `ERL_FLAGS`. See `docs/dev.config.example`.
+
+Minimal `dev.config` example:
+```
+[
+  {trellang, [
+    {trello_key, "..."},
+    {trello_token, "..."}
+  ]}
+].
+```
+
+Run with the config file:
+```
+ERL_FLAGS="-config ./dev.config" rebar3 ct
+```
+
+You can also set the values at runtime before the first API call, even after the application is started:
+```
+application:set_env(trellang, trello_key, "...").
+application:set_env(trellang, trello_token, "...").
+{ok, Me} = trello:me().
+```
 
 Run
 ---
