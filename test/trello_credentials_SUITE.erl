@@ -3,10 +3,10 @@
 -include_lib("common_test/include/ct.hrl").
 
 -export([suite/0, all/0, init_per_suite/1, end_per_suite/1]).
--export([me_with_explicit_credentials/1, me_with_invalid_credentials/1, me_parity_with_env/1]).
+-export([me_with_explicit_credentials/1, me_with_invalid_credentials/1, me_parity_with_env/1, get_card_parity/1]).
 
 suite() -> [{timetrap, {seconds, 60}}].
-all() -> [me_with_explicit_credentials, me_with_invalid_credentials, me_parity_with_env].
+all() -> [me_with_explicit_credentials, me_with_invalid_credentials, me_parity_with_env, get_card_parity].
 
 init_per_suite(Config) ->
     ok = ensure_started(ssl),
@@ -52,6 +52,23 @@ me_parity_with_env(_Config) ->
             Id1 = maps:get(<<"id">>, Me1),
             Id2 = maps:get(<<"id">>, Me2),
             Id1 = Id2,
+            ok
+    end.
+
+get_card_parity(_Config) ->
+    case {application:get_env(trellang, trello_key), application:get_env(trellang, trello_token), application:get_env(trellang, list_id)} of
+        {undefined, _, _} -> {skip, "missing trellang.trello_key in dev.config"};
+        {_, undefined, _} -> {skip, "missing trellang.trello_token in dev.config"};
+        {_, _, undefined} -> {skip, "missing trellang.list_id in dev.config"};
+        {{ok, Key0}, {ok, Tok0}, {ok, ListId0}} ->
+            Creds = #{trello_key => to_bin(Key0), trello_token => to_bin(Tok0)},
+            {ok, Card0} = trello:create_card(ListId0, #{name => <<"parity">>}),
+            CardId = maps:get(<<"id">>, Card0),
+            {ok, C1} = trello:get_card(CardId),
+            {ok, C2} = trello:get_card(Creds, CardId),
+            IdA = maps:get(<<"id">>, C1),
+            IdB = maps:get(<<"id">>, C2),
+            IdA = IdB,
             ok
     end.
 

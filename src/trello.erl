@@ -66,44 +66,80 @@ official guidance for details on style and metadata.
     me/0,
     me/1,
     get_card/1,
+    get_card/2,
     create_card/2,
+    create_card/3,
     update_card/2,
+    update_card/3,
     get_label_id_by_color/2,
+    get_label_id_by_color/3,
     add_label/2,
+    add_label/3,
     add_member/2,
+    add_member/3,
     %% Ergonomic helpers
     set_name/2,
+    set_name/3,
     set_desc/2,
+    set_desc/3,
     set_due/2,
+    set_due/3,
     clear_due/1,
+    clear_due/2,
     set_pos/2,
+    set_pos/3,
     add_label_by_color/3,
+    add_label_by_color/4,
     add_member_by_username/3,
+    add_member_by_username/4,
     list_board_usernames/1,
+    list_board_usernames/2,
     get_member_id_by_username/2,
+    get_member_id_by_username/3,
     list_custom_fields/1,
+    list_custom_fields/2,
     set_custom_field_text/3,
+    set_custom_field_text/4,
     get_card_with_custom_fields/1,
+    get_card_with_custom_fields/2,
     get_card_labels/1,
+    get_card_labels/2,
     get_card_members/1,
+    get_card_members/2,
     set_custom_field_date/3,
+    set_custom_field_date/4,
     set_custom_field_checkbox/3,
+    set_custom_field_checkbox/4,
     list_lists/1,
+    list_lists/2,
     list_cards_for_list/2,
+    list_cards_for_list/3,
     dump_board/2,
+    dump_board/3,
     %% Checklists
     list_checklists/1,
+    list_checklists/2,
     create_checklist/2,
+    create_checklist/3,
     rename_checklist/2,
+    rename_checklist/3,
     set_checklist_pos/2,
+    set_checklist_pos/3,
     %% Check items
     add_check_item/3,
+    add_check_item/4,
     rename_check_item/3,
+    rename_check_item/4,
     set_check_item_state/3,
+    set_check_item_state/4,
     set_check_item_pos/3,
+    set_check_item_pos/4,
     delete_check_item/2,
+    delete_check_item/3,
     set_check_item_due/3,
-    assign_check_item_member/3
+    set_check_item_due/4,
+    assign_check_item_member/3,
+    assign_check_item_member/4
 ]).
 
 -define(BASE_URL, "https://api.trello.com/1").
@@ -181,6 +217,15 @@ get_card(CardId0) ->
         {<<"members">>, <<"true">>}
     ]).
 
+get_card(Creds, CardId0) ->
+    CardId = to_bin(CardId0),
+    Fields = <<"id,name,desc,due,pos,idBoard">>,
+    do_get(Creds, ["/cards/", CardId], [
+        {<<"fields">>, Fields},
+        {<<"labels">>, <<"all">>},
+        {<<"members">>, <<"true">>}
+    ]).
+
 -doc """
 Create a card on a list.
 
@@ -200,6 +245,15 @@ create_card(ListId0, Options) when is_map(Options) ->
         {<<"name">>, NameBin}
     ],
     do_post("/cards", Query).
+
+create_card(Creds, ListId0, Options) when is_map(Options) ->
+    ListId = to_bin(ListId0),
+    NameBin = to_bin(maps:get(name, Options, <<>>)),
+    Query = [
+        {<<"idList">>, ListId},
+        {<<"name">>, NameBin}
+    ],
+    do_post(Creds, "/cards", Query).
 
 -doc """
 Update a card by id.
@@ -230,6 +284,25 @@ update_card(CardId0, Updates) when is_map(Updates) ->
     Fields = <<"id,name,desc,due,pos,idBoard,idLabels,labels,idMembers">>,
     Query = [{<<"fields">>, Fields} | Query0],
     do_put(["/cards/", CardId], Query).
+
+update_card(Creds, CardId0, Updates) when is_map(Updates) ->
+    CardId = to_bin(CardId0),
+    Query0 = maps:fold(fun
+        (name, V, Acc) -> [{<<"name">>, to_bin(V)} | Acc];
+        (desc, V, Acc) -> [{<<"desc">>, to_bin(V)} | Acc];
+        (due, V, Acc)  -> [{<<"due">>, to_bin(V)} | Acc];
+        (pos, V, Acc)  -> [{<<"pos">>, to_bin(V)} | Acc];
+        (idLabels, Vals, Acc) when is_list(Vals) ->
+            Pairs = [{<<"idLabels[]">>, to_bin(V)} || V <- Vals],
+            Pairs ++ Acc;
+        (idMembers, Vals, Acc) when is_list(Vals) ->
+            Pairs = [{<<"idMembers[]">>, to_bin(V)} || V <- Vals],
+            Pairs ++ Acc;
+        (_K, _V, Acc) -> Acc
+    end, [], Updates),
+    Fields = <<"id,name,desc,due,pos,idBoard,idLabels,labels,idMembers">>,
+    Query = [{<<"fields">>, Fields} | Query0],
+    do_put(Creds, ["/cards/", CardId], Query).
 
 build_url(Path, QueryKVs) ->
     Qs = uri_string:compose_query(QueryKVs),
@@ -439,6 +512,15 @@ get_label_id_by_color(BoardId0, Color0) ->
         Other -> Other
     end.
 
+get_label_id_by_color(Creds, BoardId0, Color0) ->
+    BoardId = to_bin(BoardId0),
+    Color = normalize_color(Color0),
+    case do_get(Creds, ["/boards/", BoardId, "/labels"], [{<<"limit">>, <<"1000">>}]) of
+        {ok, Labels} when is_list(Labels) ->
+            find_label_id_by_color_or_name(Labels, Color);
+        Other -> Other
+    end.
+
 find_label_id_by_color_or_name(Labels, Color) ->
     %% Prefer exact color match, fallback to name match (lowercased)
     ColorPairs = [{normalize_color(maps:get(<<"color">>, L, <<>>)), L} || L <- Labels],
@@ -470,6 +552,11 @@ add_label(CardId0, LabelId0) ->
     LabelId = to_bin(LabelId0),
     do_post(["/cards/", CardId, "/idLabels"], [{<<"value">>, LabelId}]).
 
+add_label(Creds, CardId0, LabelId0) ->
+    CardId = to_bin(CardId0),
+    LabelId = to_bin(LabelId0),
+    do_post(Creds, ["/cards/", CardId, "/idLabels"], [{<<"value">>, LabelId}]).
+
 %% Add a member to a card by id
 -doc """
 Add a member to a card by member id.
@@ -484,6 +571,11 @@ add_member(CardId0, MemberId0) ->
     MemberId = to_bin(MemberId0),
     do_post(["/cards/", CardId, "/idMembers"], [{<<"value">>, MemberId}]).
 
+add_member(Creds, CardId0, MemberId0) ->
+    CardId = to_bin(CardId0),
+    MemberId = to_bin(MemberId0),
+    do_post(Creds, ["/cards/", CardId, "/idMembers"], [{<<"value">>, MemberId}]).
+
 %% List usernames on the configured board
 -doc """
 List usernames for all members on a board.
@@ -497,6 +589,14 @@ Example:
 list_board_usernames(BoardId0) ->
     BoardId = to_bin(BoardId0),
     case do_get(["/boards/", BoardId, "/members"], [{<<"fields">>, <<"id,username">>}]) of
+        {ok, Members} when is_list(Members) ->
+            {ok, [ maps:get(<<"username">>, M, <<>>) || M <- Members ]};
+        Other -> Other
+    end.
+
+list_board_usernames(Creds, BoardId0) ->
+    BoardId = to_bin(BoardId0),
+    case do_get(Creds, ["/boards/", BoardId, "/members"], [{<<"fields">>, <<"id,username">>}]) of
         {ok, Members} when is_list(Members) ->
             {ok, [ maps:get(<<"username">>, M, <<>>) || M <- Members ]};
         Other -> Other
@@ -524,6 +624,19 @@ get_member_id_by_username(BoardId0, User0) ->
         Other -> Other
     end.
 
+get_member_id_by_username(Creds, BoardId0, User0) ->
+    BoardId = to_bin(BoardId0),
+    U = normalize_color(User0),
+    case do_get(Creds, ["/boards/", BoardId, "/members"], [{<<"fields">>, <<"id,username">>}]) of
+        {ok, Members} when is_list(Members) ->
+            Pairs = [{normalize_color(maps:get(<<"username">>, M, <<>>)), M} || M <- Members],
+            case lists:keyfind(U, 1, Pairs) of
+                {_, MFound} -> {ok, maps:get(<<"id">>, MFound)};
+                false -> {error, not_found}
+            end;
+        Other -> Other
+    end.
+
 %% Custom Fields
 -doc """
 List custom field definitions for a board.
@@ -536,6 +649,13 @@ Example:
 list_custom_fields(BoardId0) ->
     BoardId = to_bin(BoardId0),
     case do_get(["/boards/", BoardId, "/customFields"], []) of
+        {ok, Fields} when is_list(Fields) -> {ok, Fields};
+        Other -> Other
+    end.
+
+list_custom_fields(Creds, BoardId0) ->
+    BoardId = to_bin(BoardId0),
+    case do_get(Creds, ["/boards/", BoardId, "/customFields"], []) of
         {ok, Fields} when is_list(Fields) -> {ok, Fields};
         Other -> Other
     end.
@@ -557,6 +677,15 @@ set_custom_field_text(CardId0, FieldId0, Text0) ->
     },
     do_put_body(["/card/", CardId, "/customField/", FieldId, "/item"], [], Body).
 
+set_custom_field_text(Creds, CardId0, FieldId0, Text0) ->
+    CardId = to_bin(CardId0),
+    FieldId = to_bin(FieldId0),
+    Text = to_bin(Text0),
+    Body = #{
+        <<"value">> => #{ <<"text">> => Text }
+    },
+    do_put_body(Creds, ["/card/", CardId, "/customField/", FieldId, "/item"], [], Body).
+
 -doc """
 Set a date custom field value (ISO-8601) on a card.
 
@@ -573,6 +702,15 @@ set_custom_field_date(CardId0, FieldId0, DateIso8601) ->
         <<"value">> => #{ <<"date">> => Date }
     },
     do_put_body(["/card/", CardId, "/customField/", FieldId, "/item"], [], Body).
+
+set_custom_field_date(Creds, CardId0, FieldId0, DateIso8601) ->
+    CardId = to_bin(CardId0),
+    FieldId = to_bin(FieldId0),
+    Date = to_bin(DateIso8601),
+    Body = #{
+        <<"value">> => #{ <<"date">> => Date }
+    },
+    do_put_body(Creds, ["/card/", CardId, "/customField/", FieldId, "/item"], [], Body).
 
 -doc """
 Set a checkbox custom field value on a card (true/false).
@@ -591,6 +729,15 @@ set_custom_field_checkbox(CardId0, FieldId0, Bool) ->
     },
     do_put_body(["/card/", CardId, "/customField/", FieldId, "/item"], [], Body).
 
+set_custom_field_checkbox(Creds, CardId0, FieldId0, Bool) ->
+    CardId = to_bin(CardId0),
+    FieldId = to_bin(FieldId0),
+    Checked = case Bool of true -> <<"true">>; false -> <<"false">>; _ -> <<"false">> end,
+    Body = #{
+        <<"value">> => #{ <<"checked">> => Checked }
+    },
+    do_put_body(Creds, ["/card/", CardId, "/customField/", FieldId, "/item"], [], Body).
+
 -doc """
 Get a card with `customFieldItems=true` for reading custom field values.
 
@@ -603,6 +750,13 @@ Items = maps:get(<<"customFieldItems">>, Card, []).
 get_card_with_custom_fields(CardId0) ->
     CardId = to_bin(CardId0),
     do_get(["/cards/", CardId], [
+        {<<"customFieldItems">>, <<"true">>},
+        {<<"fields">>, <<"id">>}
+    ]).
+
+get_card_with_custom_fields(Creds, CardId0) ->
+    CardId = to_bin(CardId0),
+    do_get(Creds, ["/cards/", CardId], [
         {<<"customFieldItems">>, <<"true">>},
         {<<"fields">>, <<"id">>}
     ]).
@@ -621,6 +775,12 @@ get_card_labels(CardId0) ->
         {<<"fields">>, <<"id,color,name">>}
     ]).
 
+get_card_labels(Creds, CardId0) ->
+    CardId = to_bin(CardId0),
+    do_get(Creds, ["/cards/", CardId, "/labels"], [
+        {<<"fields">>, <<"id,color,name">>}
+    ]).
+
 -doc """
 List member objects on a card.
 
@@ -632,6 +792,12 @@ Example:
 get_card_members(CardId0) ->
     CardId = to_bin(CardId0),
     do_get(["/cards/", CardId, "/members"], [
+        {<<"fields">>, <<"id,username">>}
+    ]).
+
+get_card_members(Creds, CardId0) ->
+    CardId = to_bin(CardId0),
+    do_get(Creds, ["/cards/", CardId, "/members"], [
         {<<"fields">>, <<"id,username">>}
     ]).
 
@@ -650,6 +816,12 @@ list_lists(BoardId0) ->
         {<<"fields">>, <<"id,name,closed,pos">>}
     ]).
 
+list_lists(Creds, BoardId0) ->
+    BoardId = to_bin(BoardId0),
+    do_get(Creds, ["/boards/", BoardId, "/lists"], [
+        {<<"fields">>, <<"id,name,closed,pos">>}
+    ]).
+
 -doc """
 List cards on a list with selectable `fields` and `limit`.
 
@@ -662,6 +834,11 @@ list_cards_for_list(ListId0, Opts) ->
     ListId = to_bin(ListId0),
     Query = build_query_from_opts(Opts, [fields, limit]),
     do_get(["/lists/", ListId, "/cards"], Query).
+
+list_cards_for_list(Creds, ListId0, Opts) ->
+    ListId = to_bin(ListId0),
+    Query = build_query_from_opts(Opts, [fields, limit]),
+    do_get(Creds, ["/lists/", ListId, "/cards"], Query).
 
 -doc """
 Dump a board into an Erlang term with lists and their cards.
@@ -686,10 +863,32 @@ dump_board(BoardId0, _Opts) ->
           L2 = L#{ <<"cards">> => Cards },
           L3 = case maps:get(include_checklists, _Opts, false) of
                    true ->
-                       %% For each card, attach its checklists
                        CardsWithCL = [
                            begin
                                {ok, CLs} = list_checklists(maps:get(<<"id">>, C)),
+                               C#{ <<"checklists">> => CLs }
+                           end || C <- Cards],
+                       L2#{ <<"cards">> => CardsWithCL };
+                   _ -> L2
+               end,
+          L3
+      end, Lists),
+    {ok, #{ board => Board, lists => CardsPerList }}.
+
+dump_board(Creds, BoardId0, _Opts) ->
+    BoardId = to_bin(BoardId0),
+    {ok, Board} = do_get(Creds, ["/boards/", BoardId], [{<<"fields">>, <<"id,name">>}]),
+    {ok, Lists} = list_lists(Creds, BoardId),
+    CardsPerList = lists:map(
+      fun(L) ->
+          Lid = maps:get(<<"id">>, L),
+          {ok, Cards} = list_cards_for_list(Creds, Lid, #{fields => <<"id,name,idList">>, limit => 1000}),
+          L2 = L#{ <<"cards">> => Cards },
+          L3 = case maps:get(include_checklists, _Opts, false) of
+                   true ->
+                       CardsWithCL = [
+                           begin
+                               {ok, CLs} = list_checklists(Creds, maps:get(<<"id">>, C)),
                                C#{ <<"checklists">> => CLs }
                            end || C <- Cards],
                        L2#{ <<"cards">> => CardsWithCL };
@@ -721,6 +920,10 @@ list_checklists(CardId0) ->
     CardId = to_bin(CardId0),
     do_get(["/cards/", CardId, "/checklists"], []).
 
+list_checklists(Creds, CardId0) ->
+    CardId = to_bin(CardId0),
+    do_get(Creds, ["/cards/", CardId, "/checklists"], []).
+
 -doc """
 Create a checklist on a card.
 
@@ -733,6 +936,13 @@ create_checklist(CardId0, Name0) ->
     CardId = to_bin(CardId0),
     Name = to_bin(Name0),
     do_post(["/cards/", CardId, "/checklists"], [
+        {<<"name">>, Name}
+    ]).
+
+create_checklist(Creds, CardId0, Name0) ->
+    CardId = to_bin(CardId0),
+    Name = to_bin(Name0),
+    do_post(Creds, ["/cards/", CardId, "/checklists"], [
         {<<"name">>, Name}
     ]).
 
@@ -755,6 +965,13 @@ rename_checklist(ChecklistId0, NewName0) ->
         {<<"name">>, NewName}
     ]).
 
+rename_checklist(Creds, ChecklistId0, NewName0) ->
+    ChecklistId = to_bin(ChecklistId0),
+    NewName = to_bin(NewName0),
+    do_put(Creds, ["/checklists/", ChecklistId], [
+        {<<"name">>, NewName}
+    ]).
+
 -doc """
 Set checklist position (number or top/bottom).
 
@@ -771,6 +988,13 @@ set_checklist_pos(ChecklistId0, Pos0) ->
     ChecklistId = to_bin(ChecklistId0),
     Pos = to_bin(Pos0),
     do_put(["/checklists/", ChecklistId], [
+        {<<"pos">>, Pos}
+    ]).
+
+set_checklist_pos(Creds, ChecklistId0, Pos0) ->
+    ChecklistId = to_bin(ChecklistId0),
+    Pos = to_bin(Pos0),
+    do_put(Creds, ["/checklists/", ChecklistId], [
         {<<"pos">>, Pos}
     ]).
 
@@ -799,6 +1023,21 @@ add_check_item(ChecklistId0, Name0, Opts) when is_map(Opts) ->
             end,
     do_post(["/checklists/", ChecklistId, "/checkItems"], lists:reverse(Query)).
 
+add_check_item(Creds, ChecklistId0, Name0, Opts) when is_map(Opts) ->
+    ChecklistId = to_bin(ChecklistId0),
+    Name = to_bin(Name0),
+    Query0 = [{<<"name">>, Name} |
+              case maps:get(pos, Opts, undefined) of
+                  undefined -> [];
+                  P -> [{<<"pos">>, to_bin(P)}]
+              end],
+    Query = case maps:get(checked, Opts, undefined) of
+                true -> [{<<"checked">>, <<"true">>} | Query0];
+                false -> [{<<"checked">>, <<"false">>} | Query0];
+                _ -> Query0
+            end,
+    do_post(Creds, ["/checklists/", ChecklistId, "/checkItems"], lists:reverse(Query)).
+
 -doc """
 Rename a check item (requires card id and check item id).
 
@@ -812,6 +1051,14 @@ rename_check_item(CardId0, CheckItemId0, NewName0) ->
     CheckItemId = to_bin(CheckItemId0),
     NewName = to_bin(NewName0),
     do_put(["/cards/", CardId, "/checkItem/", CheckItemId], [
+        {<<"name">>, NewName}
+    ]).
+
+rename_check_item(Creds, CardId0, CheckItemId0, NewName0) ->
+    CardId = to_bin(CardId0),
+    CheckItemId = to_bin(CheckItemId0),
+    NewName = to_bin(NewName0),
+    do_put(Creds, ["/cards/", CardId, "/checkItem/", CheckItemId], [
         {<<"name">>, NewName}
     ]).
 
@@ -831,6 +1078,14 @@ set_check_item_state(CardId0, CheckItemId0, State) ->
         {<<"state">>, StateBin}
     ]).
 
+set_check_item_state(Creds, CardId0, CheckItemId0, State) ->
+    CardId = to_bin(CardId0),
+    CheckItemId = to_bin(CheckItemId0),
+    StateBin = case State of complete -> <<"complete">>; _ -> <<"incomplete">> end,
+    do_put(Creds, ["/cards/", CardId, "/checkItem/", CheckItemId], [
+        {<<"state">>, StateBin}
+    ]).
+
 -doc """
 Reorder a check item; pos is top/bottom/number.
 
@@ -844,6 +1099,14 @@ set_check_item_pos(CardId0, CheckItemId0, Pos0) ->
     CheckItemId = to_bin(CheckItemId0),
     Pos = to_bin(Pos0),
     do_put(["/cards/", CardId, "/checkItem/", CheckItemId], [
+        {<<"pos">>, Pos}
+    ]).
+
+set_check_item_pos(Creds, CardId0, CheckItemId0, Pos0) ->
+    CardId = to_bin(CardId0),
+    CheckItemId = to_bin(CheckItemId0),
+    Pos = to_bin(Pos0),
+    do_put(Creds, ["/cards/", CardId, "/checkItem/", CheckItemId], [
         {<<"pos">>, Pos}
     ]).
 
@@ -863,6 +1126,14 @@ delete_check_item(ChecklistId0, CheckItemId0) ->
         {error, _}=E -> E
     end.
 
+delete_check_item(Creds, ChecklistId0, CheckItemId0) ->
+    ChecklistId = to_bin(ChecklistId0),
+    CheckItemId = to_bin(CheckItemId0),
+    case do_delete(Creds, ["/checklists/", ChecklistId, "/checkItems/", CheckItemId], []) of
+        {ok, _} -> ok;
+        {error, _}=E -> E
+    end.
+
 -doc """
 Set a check item due date (ISO-8601) or null.
 
@@ -877,6 +1148,14 @@ set_check_item_due(CardId0, CheckItemId0, Due0) ->
     CheckItemId = to_bin(CheckItemId0),
     DueBin = case Due0 of null -> <<"null">>; undefined -> <<"null">>; _ -> to_bin(Due0) end,
     do_put(["/cards/", CardId, "/checkItem/", CheckItemId], [
+        {<<"due">>, DueBin}
+    ]).
+
+set_check_item_due(Creds, CardId0, CheckItemId0, Due0) ->
+    CardId = to_bin(CardId0),
+    CheckItemId = to_bin(CheckItemId0),
+    DueBin = case Due0 of null -> <<"null">>; undefined -> <<"null">>; _ -> to_bin(Due0) end,
+    do_put(Creds, ["/cards/", CardId, "/checkItem/", CheckItemId], [
         {<<"due">>, DueBin}
     ]).
 
@@ -903,6 +1182,20 @@ assign_check_item_member(CardId0, CheckItemId0, MemberIdOrUndefined) ->
             ])
     end.
 
+assign_check_item_member(Creds, CardId0, CheckItemId0, MemberIdOrUndefined) ->
+    CardId = to_bin(CardId0),
+    CheckItemId = to_bin(CheckItemId0),
+    case MemberIdOrUndefined of
+        undefined ->
+            do_put(Creds, ["/cards/", CardId, "/checkItem/", CheckItemId], [
+                {<<"idMember">>, <<"null">>}
+            ]);
+        MemberId ->
+            do_put(Creds, ["/cards/", CardId, "/checkItem/", CheckItemId], [
+                {<<"idMember">>, to_bin(MemberId)}
+            ])
+    end.
+
 %% Ergonomic helpers
 
 -doc """
@@ -916,6 +1209,9 @@ Example:
 set_name(CardId, Name) ->
     update_card(CardId, #{name => Name}).
 
+set_name(Creds, CardId, Name) ->
+    update_card(Creds, CardId, #{name => Name}).
+
 -doc """
 Set card description.
 
@@ -926,6 +1222,9 @@ Example:
 """.
 set_desc(CardId, Desc) ->
     update_card(CardId, #{desc => Desc}).
+
+set_desc(Creds, CardId, Desc) ->
+    update_card(Creds, CardId, #{desc => Desc}).
 
 -doc """
 Set card due date (ISO-8601) or <<"null">>.
@@ -938,6 +1237,9 @@ Example:
 set_due(CardId, DateIso8601OrNull) ->
     update_card(CardId, #{due => DateIso8601OrNull}).
 
+set_due(Creds, CardId, DateIso8601OrNull) ->
+    update_card(Creds, CardId, #{due => DateIso8601OrNull}).
+
 -doc """
 Clear card due date.
 
@@ -948,6 +1250,9 @@ Example:
 """.
 clear_due(CardId) ->
     update_card(CardId, #{due => <<"null">>}).
+
+clear_due(Creds, CardId) ->
+    update_card(Creds, CardId, #{due => <<"null">>}).
 
 -doc """
 Set card position (number or <<"top">>/<<"bottom">>).
@@ -960,6 +1265,9 @@ Example:
 set_pos(CardId, Pos) ->
     %% Pos can be a number or one of <<"top">>, <<"bottom">>
     update_card(CardId, #{pos => Pos}).
+
+set_pos(Creds, CardId, Pos) ->
+    update_card(Creds, CardId, #{pos => Pos}).
 
 -doc """
 Add a label to a card by standard color on the given board.
@@ -975,6 +1283,12 @@ add_label_by_color(BoardId, CardId, Color) ->
         Error -> Error
     end.
 
+add_label_by_color(Creds, BoardId, CardId, Color) ->
+    case get_label_id_by_color(Creds, BoardId, Color) of
+        {ok, LabelId} -> add_label(Creds, CardId, LabelId);
+        Error -> Error
+    end.
+
 -doc """
 Add a member to a card by username on the given board.
 
@@ -986,6 +1300,12 @@ Example:
 add_member_by_username(BoardId, CardId, Username) ->
     case get_member_id_by_username(BoardId, Username) of
         {ok, MemberId} -> add_member(CardId, MemberId);
+        Error -> Error
+    end.
+
+add_member_by_username(Creds, BoardId, CardId, Username) ->
+    case get_member_id_by_username(Creds, BoardId, Username) of
+        {ok, MemberId} -> add_member(Creds, CardId, MemberId);
         Error -> Error
     end.
 
