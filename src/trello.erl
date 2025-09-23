@@ -64,6 +64,7 @@ official guidance for details on style and metadata.
 
 -export([
     me/0,
+    me/1,
     get_card/1,
     create_card/2,
     update_card/2,
@@ -121,16 +122,41 @@ Username = maps:get(<<"username">>, Me).
 me() ->
     do_get("/members/me", []).
 
+-doc """
+Fetch the authenticated member ("/members/me") using explicit credentials.
+
+Pass a credentials map: `#{trello_key := <<"...">>, trello_token := <<"...">>}`.
+
+Returns the member map on success.
+
+Example:
+```erlang
+Creds = #{trello_key => <<"KEY">>, trello_token => <<"TOKEN">>},
+{ok, Me} = trello:me(Creds),
+Username = maps:get(<<"username">>, Me).
+```
+""".
+me(Creds) ->
+    do_get(Creds, "/members/me", []).
+
 %% Internal helpers
 
 do_get(Path, QueryKVs) ->
-    {ok, Key, Token} = get_credentials(),
+    do_get(get_credentials(), Path, QueryKVs).
+
+do_get(#{trello_key := Key0, trello_token := Token0}, Path, QueryKVs) ->
+    Key = to_bin(Key0),
+    Token = to_bin(Token0),
     Query = [{<<"key">>, Key}, {<<"token">>, Token} | QueryKVs],
     Url = build_url(Path, Query),
     http_get_json(Url).
 
 do_post(Path, QueryKVs) ->
-    {ok, Key, Token} = get_credentials(),
+    do_post(get_credentials(), Path, QueryKVs).
+
+do_post(#{trello_key := Key0, trello_token := Token0}, Path, QueryKVs) ->
+    Key = to_bin(Key0),
+    Token = to_bin(Token0),
     Query = [{<<"key">>, Key}, {<<"token">>, Token} | QueryKVs],
     Url = build_url(Path, Query),
     http_post_json(Url).
@@ -265,7 +291,11 @@ http_post_json_sni(Url, SNIHost) ->
     do_write_with_retry(post, Url, Headers, "application/x-www-form-urlencoded", Body, HTTPOpts, ReqOpts, 5, 0).
 
 do_put(Path, QueryKVs) ->
-    {ok, Key, Token} = get_credentials(),
+    do_put(get_credentials(), Path, QueryKVs).
+
+do_put(#{trello_key := Key0, trello_token := Token0}, Path, QueryKVs) ->
+    Key = to_bin(Key0),
+    Token = to_bin(Token0),
     Query = [{<<"key">>, Key}, {<<"token">>, Token} | QueryKVs],
     Url = build_url(Path, Query),
     http_put_json(Url).
@@ -293,7 +323,11 @@ http_put_json_sni(Url, SNIHost) ->
     do_write_with_retry(put, Url, Headers, "application/x-www-form-urlencoded", Body, HTTPOpts, ReqOpts, 5, 0).
 
 do_put_body(Path, QueryKVs, MapBody) ->
-    {ok, Key, Token} = get_credentials(),
+    do_put_body(get_credentials(), Path, QueryKVs, MapBody).
+
+do_put_body(#{trello_key := Key0, trello_token := Token0}, Path, QueryKVs, MapBody) ->
+    Key = to_bin(Key0),
+    Token = to_bin(Token0),
     Query = [{<<"key">>, Key}, {<<"token">>, Token} | QueryKVs],
     Url = build_url(Path, Query),
     SSLOpts = [
@@ -322,7 +356,11 @@ do_write_with_retry(_M, _U, _H, _C, _B, _O, _R, 0, _Backoff) ->
     {error, retry_exhausted}.
 
 do_delete(Path, QueryKVs) ->
-    {ok, Key, Token} = get_credentials(),
+    do_delete(get_credentials(), Path, QueryKVs).
+
+do_delete(#{trello_key := Key0, trello_token := Token0}, Path, QueryKVs) ->
+    Key = to_bin(Key0),
+    Token = to_bin(Token0),
     Query = [{<<"key">>, Key}, {<<"token">>, Token} | QueryKVs],
     Url = build_url(Path, Query),
     http_delete_json(Url).
@@ -378,12 +416,9 @@ to_bin(I) when is_integer(I) -> integer_to_binary(I).
 
 %% Credentials helper: fetch key/token from application env, return binaries
 get_credentials() ->
-    case {application:get_env(trellang, trello_key), application:get_env(trellang, trello_token)} of
-        {{ok, Key0}, {ok, Token0}} -> {ok, to_bin(Key0), to_bin(Token0)};
-        {undefined, _} -> {error, missing_trello_key};
-        {_, undefined} -> {error, missing_trello_token};
-        {OtherKey, OtherTok} -> {error, {invalid_credentials_env, OtherKey, OtherTok}}
-    end.
+    {ok, Key0} = application:get_env(trellang, trello_key),
+    {ok, Token0} = application:get_env(trellang, trello_token),
+    #{trello_key => Key0, trello_token => Token0}.
 
 
 %% Utility: resolve a label id on the configured board by standard color or name
