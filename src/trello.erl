@@ -310,8 +310,8 @@ build_url(Path, QueryKVs) ->
 
 http_get_json(Url) ->
     case http_get_json_sni(Url, "api.trello.com") of
-        {error, {failed_connect, _}} ->
-            %% Fallback SNI host if handshake/hostname check failed
+        {error, _} ->
+            %% Fallback SNI host for handshake/hostname issues
             case http_get_json_sni(Url, "trello.com") of
                 {error, _}=E2 -> E2;
                 Ok -> Ok
@@ -343,7 +343,7 @@ do_get_with_retry(_Url, _HTTPOpts, _ReqOpts, 0, _Backoff) ->
 
 http_post_json(Url) ->
     case http_post_json_sni(Url, "api.trello.com") of
-        {error, {failed_connect, _}} ->
+        {error, _} ->
             case http_post_json_sni(Url, "trello.com") of
                 {error, _}=E2 -> E2;
                 Ok -> Ok
@@ -375,7 +375,7 @@ do_put(#{trello_key := Key0, trello_token := Token0}, Path, QueryKVs) ->
 
 http_put_json(Url) ->
     case http_put_json_sni(Url, "api.trello.com") of
-        {error, {failed_connect, _}} ->
+        {error, _} ->
             case http_put_json_sni(Url, "trello.com") of
                 {error, _}=E2 -> E2;
                 Ok -> Ok
@@ -440,7 +440,7 @@ do_delete(#{trello_key := Key0, trello_token := Token0}, Path, QueryKVs) ->
 
 http_delete_json(Url) ->
     case http_delete_json_sni(Url, "api.trello.com") of
-        {error, {failed_connect, _}} ->
+        {error, _} ->
             case http_delete_json_sni(Url, "trello.com") of
                 {error, _}=E2 -> E2;
                 Ok -> Ok
