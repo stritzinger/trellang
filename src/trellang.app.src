@@ -1,6 +1,6 @@
 {application,trellang,
              [{description,"Trello REST client for Erlang/OTP"},
-              {vsn,"1.1.0"},
+              {vsn,"1.2.0"},
               {registered,[]},
               {mod,{trellang_app,[]}},
               {applications,[kernel,stdlib]},

@@ -3,6 +3,24 @@ trellang Changelog
 
 This project adheres to semantic versioning. Notable changes for each release are listed below.
 
+## v1.2.0
+
+- Credentials-aware API:
+  - Added Creds-first arities for all public APIs (maps: `#{trello_key, trello_token}`), legacy arities delegate to Creds variants.
+  - Simplified credentials plumbing; `get_credentials/0` returns a map; helpers pattern-match and fail fast internally.
+- Board mirror server:
+  - New `trello_board_server` `gen_server` that mirrors a board with `refresh/1`, optional periodic refresh, and delegates for `create_card/3`, `update_card/3`, `add_check_item/4`.
+- Reliability:
+  - Broadened TLS SNI fallback handling in HTTP helpers.
+  - Increased server call timeouts in CT to accommodate network variance.
+- Documentation:
+  - README updates: explicit credentials usage and board mirror quickstart.
+- Testing:
+  - New CT suites: `trello_credentials_SUITE` and `trello_board_server_SUITE`.
+
+### Compare
+- v1.2.0 vs v1.1.0: `https://github.com/stritzinger/trellang/compare/v1.1.0...v1.2.0`
+
 ## v1.1.0
 
 - Added checklist support:
