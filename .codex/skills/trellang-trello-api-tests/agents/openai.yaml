@@ -1,0 +1,4 @@
+interface:
+  display_name: "Trellang Trello Scope"
+  short_description: "Repo Trello API and test safety rules"
+  default_prompt: "Use this skill when changing trello.erl or Trello integration tests so credentials, board scope, and cleanup rules stay correct."

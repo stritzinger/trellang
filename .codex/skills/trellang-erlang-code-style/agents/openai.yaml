@@ -1,0 +1,4 @@
+interface:
+  display_name: "Trellang Erlang Style"
+  short_description: "Repo Erlang coding conventions"
+  default_prompt: "Use this skill when editing Erlang modules in trellang so boundary, docs, JSON, gen_server, and pg conventions stay consistent."

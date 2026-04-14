@@ -1,0 +1,4 @@
+interface:
+  display_name: "Trellang Rebar Publish"
+  short_description: "Repo rebar, docs, and release config rules"
+  default_prompt: "Use this skill when editing rebar.config or release and publish wiring for trellang."
