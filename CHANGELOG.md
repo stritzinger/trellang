@@ -3,7 +3,7 @@ trellang Changelog
 
 This project adheres to semantic versioning. Notable changes for each release are listed below.
 
-## v1.2.0 — Unreleased
+## v1.2.0 — 2026-10-14
 
 - Credentials-aware API:
   - Added Creds-first arities for all public APIs (maps: `#{trello_key, trello_token}`), legacy arities delegate to Creds variants.
@@ -23,7 +23,8 @@ This project adheres to semantic versioning. Notable changes for each release ar
   - Corrected Dialyzer's OTP dependency setup and removed unreachable board-server refresh branches without changing behavior.
 
 ### Compare
-- [Unreleased changes since v1.1.0](https://github.com/stritzinger/trellang/compare/v1.1.0...HEAD)
+- [v1.2.0 changes since v1.1.0](https://github.com/stritzinger/trellang/compare/v1.1.0...v1.2.0)
+- [Hex package](https://hex.pm/packages/trellang/1.2.0) · [Versioned documentation](https://hexdocs.pm/trellang/1.2.0/)
 
 ## v1.1.0 — 2025-09-18
 
