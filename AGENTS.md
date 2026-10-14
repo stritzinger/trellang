@@ -37,7 +37,7 @@ GitHub Actions:
 - Pull requests and trusted pushes compile sources/tests and validate release metadata, package and docs without secrets.
 - Complete integration tests run only for release tags through the protected `trello-tests` environment. Require approval by `@stritzinger/developers`, prevent self-review and disable administrator bypass.
 - Store `TRELLO_KEY` and `TRELLO_TOKEN` as separate environment secrets. Store `TRELLO_BOARD_ID` and `TRELLO_LIST_ID` as environment variables. Never store a whole Erlang config as a secret or interpolate a secret into shell source.
-- Protect release tags and `main`; require code-owner review for workflow, test and dependency changes. Enable secret scanning and push protection.
+- Protect release tags and `main`; require passing CI on pull requests. Independent PR review is optional; code owners identify reviewers for workflow, test and dependency changes. Enable secret scanning and push protection.
 - Keep workflow permissions read-only. Pin actions by full commit SHA, use GitHub-hosted runners, and set checkout `persist-credentials: false`.
 - Credentialed jobs publish only allowlisted test names, results and counts. Do not upload raw test logs, configuration, crash dumps or caches.
 - Hex publication happens only on development machines. Never put Hex credentials in GitHub secrets or publish to Hex from CI.

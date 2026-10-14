@@ -23,9 +23,8 @@ The historical releases were reconciled as follows:
 The missing `v1.1.0` tag was restored and pushed after comparing every file in
 the published archive with the verified commit above. The published package was
 unchanged; the tag annotation records its recovery after publication. Version
-1.2.0 remains **Unreleased**, pending independent approval through the protected
-pull-request process and completion of release validation. Update this table
-when publication is verified.
+1.2.0 remains **Unreleased**, pending completion of the release procedure below.
+Update this table when publication is verified.
 
 ## Toolchain and credential protection
 
@@ -47,9 +46,10 @@ GitHub's `trello-tests` environment contains only individual `TRELLO_KEY` and
 `TRELLO_TOKEN` secrets, with board/list IDs in `TRELLO_BOARD_ID` and
 `TRELLO_LIST_ID` environment variables. The environment requires
 `@stritzinger/developers` approval, prevents self-review, disables administrator
-bypass, and is restricted to release tags. Tags must point to reviewed `main`
-commits. Repository protections cover `main` and release tags and require
-code-owner review for sensitive CI/test/dependency files. Secret scanning and
+bypass, and is restricted to release tags. Tags must point to `main` commits
+with successful release validation. Repository protections require pull requests
+and passing CI on `main`; independent PR review is optional. Code owners identify
+reviewers for sensitive CI/test/dependency files. Release tags are immutable. Secret scanning and
 push protection are enabled. Actions use verified full commit SHA pins and a
 selected-action allowlist; workflow dependency lockfiles
 require GitHub Enterprise and are not available on this organization's Team plan.
@@ -57,9 +57,10 @@ require GitHub Enterprise and are not available on this organization's Team plan
 ## Prepare and validate
 
 Work in a clean repository checkout without `_checkouts` overrides. Submit
-release changes through the protected `main` pull-request process; do not bypass
-required checks or an independent review. Inspect the package allowlist in the
-application metadata whenever adding files.
+release changes through the protected `main` pull-request process; required checks
+must pass, and maintainers may authorize their own merges. The separate approval
+for credentialed integration jobs remains mandatory. Inspect the package allowlist
+in the application metadata whenever adding files.
 
 1. Set the intended version in `src/trellang.app.src` and record observable changes
    under `## vX.Y.Z — Unreleased` in the changelog. Restore or update public docs.
@@ -86,7 +87,7 @@ application metadata whenever adding files.
    unexpected files and missing documentation.
 3. Once these checks pass, replace **Unreleased** with the intended publication
    date (`YYYY-MM-DD`), change the changelog comparison link from `HEAD` to
-   `vX.Y.Z`, and merge the reviewed release preparation into `main`.
+   `vX.Y.Z`, and merge the release preparation into `main` after required CI passes.
 4. At that exact clean `main` commit, create an annotated `vX.Y.Z` tag. Run
    `scripts/check_release.escript --tag vX.Y.Z`, then push the tag. Await successful
    CI, including the separately approved full integration test job and Dialyzer,

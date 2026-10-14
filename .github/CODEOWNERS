@@ -1,4 +1,4 @@
-# Changes to code that can access credentials require maintainer review.
+# Suggested reviewers for changes to code that can access credentials.
 /.github/ @stritzinger/developers
 /scripts/ @stritzinger/developers
 /test/ @stritzinger/developers
