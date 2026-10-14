@@ -6,5 +6,8 @@
               {applications,[kernel,stdlib]},
               {env,[]},
               {modules,[]},
+              {files,["src", "rebar.config", "rebar.lock", "LICENSE.md",
+                      "README.md", "CHANGELOG.md", "AGENTS.md",
+                      "docs/dev.config.example", "docs/releases.md"]},
               {licenses,["Apache-2.0"]},
               {links,[{"GitHub","https://github.com/stritzinger/trellang"}]}]}.

@@ -20,6 +20,8 @@ logs
 rebar3.crashdump
 *~
 dev.config
+__pycache__/
+*.pyc
 
 # macOS
 .DS_Store

@@ -116,10 +116,8 @@ init({Creds, BoardId, Opts}) ->
 handle_call(get_state, _From, S = #state{}) ->
     {reply, state_to_map(S), S};
 handle_call(refresh, _From, S0) ->
-    case do_refresh(S0) of
-        {ok, S1} -> {reply, ok, S1};
-        {error, _}=E -> {reply, E, S0}
-    end;
+    {ok, S1} = do_refresh(S0),
+    {reply, ok, S1};
 handle_call({create_card, ListId0, Fields}, _From, S0 = #state{creds = Creds}) ->
     ListId = to_bin(ListId0),
     case trello:create_card(Creds, ListId, Fields) of
@@ -152,10 +150,8 @@ handle_cast(_Msg, _State) ->
     erlang:error(badcast).
 
 handle_info(refresh_tick, S0) ->
-    case do_refresh(S0) of
-        {ok, S1} -> {noreply, ensure_timer(S1)};
-        {error, _} -> {noreply, ensure_timer(S0)}
-    end;
+    {ok, S1} = do_refresh(S0),
+    {noreply, ensure_timer(S1)};
 handle_info(Info, S) ->
     logger:debug("Unhandled info: ~p", [Info]),
     {noreply, S}.
@@ -168,10 +164,8 @@ code_change(_OldVsn, State, _Extra) -> {ok, State}.
 maybe_initial_refresh(S0, Opts) ->
     case maps:get(initial_refresh, Opts, false) of
         true ->
-            case do_refresh(S0) of
-                {ok, S1} -> S1;
-                {error, _} -> S0
-            end;
+            {ok, S1} = do_refresh(S0),
+            S1;
         _ -> S0
     end.
 
@@ -189,16 +183,13 @@ maybe_cancel_timer(Ref) when is_reference(Ref) ->
     ok.
 
 do_refresh(S0 = #state{creds = Creds, board_id = BoardId}) ->
-    case trello:dump_board(Creds, BoardId, #{include_checklists => true}) of
-        {ok, Dump} ->
-            Lists = maps:get(lists, Dump, []),
-            Cards = lists:flatmap(fun(L) -> maps:get(<<"cards">>, L, []) end, Lists),
-            Checklists = lists:flatmap(
-                fun(C) -> maps:get(<<"checklists">>, C, []) end, Cards),
-            TS = erlang:system_time(millisecond),
-            {ok, S0#state{ lists = Lists, cards = Cards, checklists = Checklists, last_sync = TS }};
-        {error, _}=E -> E
-    end.
+    {ok, Dump} = trello:dump_board(Creds, BoardId, #{include_checklists => true}),
+    Lists = maps:get(lists, Dump, []),
+    Cards = lists:flatmap(fun(L) -> maps:get(<<"cards">>, L, []) end, Lists),
+    Checklists = lists:flatmap(
+        fun(C) -> maps:get(<<"checklists">>, C, []) end, Cards),
+    TS = erlang:system_time(millisecond),
+    {ok, S0#state{ lists = Lists, cards = Cards, checklists = Checklists, last_sync = TS }}.
 
 state_to_map(#state{board_id = B, lists = Ls, cards = Cs, checklists = CLs, last_sync = TS}) ->
     #{ board_id => B, lists => Ls, cards => Cs, checklists => CLs, last_sync => TS }.

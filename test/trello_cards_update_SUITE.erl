@@ -2,27 +2,31 @@
 
 -include_lib("common_test/include/ct.hrl").
 
--export([suite/0, all/0, init_per_suite/1, end_per_suite/1]).
+-export([suite/0, all/0, init_per_suite/1, end_per_suite/1, init_per_testcase/2, end_per_testcase/2]).
 -export([update_name_and_desc/1, update_real_due_date/1, update_label_by_color/1, update_member_by_username/1]).
 
 suite() -> [{timetrap, {seconds, 90}}].
 all() -> [update_name_and_desc, update_real_due_date, update_label_by_color, update_member_by_username].
 
 init_per_suite(Config) ->
-    ok = ensure_started(ssl),
-    ok = ensure_started(inets),
-    ok = ensure_loaded(trellang),
-    Config.
+    trello_test_fixture:init_per_suite(Config).
 
-end_per_suite(_Config) -> ok.
+end_per_suite(Config) ->
+    trello_test_fixture:end_per_suite(Config).
 
-update_name_and_desc(_Config) ->
+init_per_testcase(Case, Config) ->
+    trello_test_fixture:init_per_testcase(Case, Config).
+
+end_per_testcase(Case, Config) ->
+    trello_test_fixture:end_per_testcase(Case, Config).
+
+update_name_and_desc(Config) ->
     case {application:get_env(trellang, board_id), application:get_env(trellang, list_id)} of
         {undefined, _} -> {skip, "missing trellang.board_id in dev.config"};
         {_, undefined} -> {skip, "missing trellang.list_id in dev.config"};
         {_, _} ->
             {ok, ListId0} = application:get_env(trellang, list_id),
-            {ok, Card0} = trello:create_card(ListId0, #{name => <<"CT update test">>}),
+            {ok, Card0} = trello_test_fixture:create_card(Config, ListId0, #{name => <<"CT update test">>}),
             CardId = maps:get(<<"id">>, Card0),
             {ok, Updated} = trello:update_card(CardId, #{name => <<"Updated name">>, desc => <<"Updated desc">>, due => <<"null">>, pos => <<"top">>}),
             %% verify echoed fields
@@ -38,7 +42,7 @@ update_name_and_desc(_Config) ->
             ok
     end.
 
-update_member_by_username(_Config) ->
+update_member_by_username(Config) ->
     case {application:get_env(trellang, board_id), application:get_env(trellang, list_id)} of
         {undefined, _} -> {skip, "missing trellang.board_id in dev.config"};
         {_, undefined} -> {skip, "missing trellang.list_id in dev.config"};
@@ -48,7 +52,7 @@ update_member_by_username(_Config) ->
                 {ok, [Username | _]} ->
                     {ok, MemberId} = trello:get_member_id_by_username(BoardId0, Username),
                     {ok, ListId0} = application:get_env(trellang, list_id),
-                    {ok, Card0} = trello:create_card(ListId0, #{name => <<"CT member username test">>}),
+                    {ok, Card0} = trello_test_fixture:create_card(Config, ListId0, #{name => <<"CT member username test">>}),
                     CardId = maps:get(<<"id">>, Card0),
                     {ok, _} = trello:add_member(CardId, MemberId),
                     ok = wait_for_member(CardId, MemberId, 60),
@@ -57,7 +61,7 @@ update_member_by_username(_Config) ->
             end
     end.
 
-update_label_by_color(_Config) ->
+update_label_by_color(Config) ->
     case {application:get_env(trellang, board_id), application:get_env(trellang, list_id)} of
         {undefined, _} -> {skip, "missing trellang.board_id in dev.config"};
         {_, undefined} -> {skip, "missing trellang.list_id in dev.config"};
@@ -67,7 +71,7 @@ update_label_by_color(_Config) ->
                 {error, not_found} -> {skip, "no standard color label found on configured board"};
                 {ok, LabelId} ->
                     {ok, ListId0} = application:get_env(trellang, list_id),
-                    {ok, Card0} = trello:create_card(ListId0, #{name => <<"CT label color test">>}),
+                    {ok, Card0} = trello_test_fixture:create_card(Config, ListId0, #{name => <<"CT label color test">>}),
                     CardId = maps:get(<<"id">>, Card0),
                     %% use add_label helper to ensure idLabels is returned afterwards
                     {ok, _} = trello:add_label(CardId, LabelId),
@@ -76,10 +80,6 @@ update_label_by_color(_Config) ->
             end
     end.
 
-
-to_bin(B) when is_binary(B) -> B;
-to_bin(L) when is_list(L) -> unicode:characters_to_binary(L);
-to_bin(A) when is_atom(A) -> atom_to_binary(A, utf8).
 
 wait_for_member(CardId, MemberId, Attempts) ->
     {ok, Members} = trello:get_card_members(CardId),
@@ -114,13 +114,13 @@ find_first_ok(BoardId0, [C | Rest]) ->
     end;
 find_first_ok(_BoardId0, []) -> {error, not_found}.
 
-update_real_due_date(_Config) ->
+update_real_due_date(Config) ->
     case {application:get_env(trellang, board_id), application:get_env(trellang, list_id)} of
         {undefined, _} -> {skip, "missing trellang.board_id in dev.config"};
         {_, undefined} -> {skip, "missing trellang.list_id in dev.config"};
         {_, _} ->
             {ok, ListId0} = application:get_env(trellang, list_id),
-            {ok, Card0} = trello:create_card(ListId0, #{name => <<"CT due test">>}),
+            {ok, Card0} = trello_test_fixture:create_card(Config, ListId0, #{name => <<"CT due test">>}),
             CardId = maps:get(<<"id">>, Card0),
             Due = <<"2030-01-02T03:04:05.000Z">>,
             {ok, Updated} = trello:update_card(CardId, #{due => Due}),
@@ -129,19 +129,3 @@ update_real_due_date(_Config) ->
             Due = maps:get(<<"due">>, Card),
             ok
     end.
-
-ensure_started(App) ->
-    case application:ensure_all_started(App) of
-        {ok, _} -> ok;
-        {error, {already_started, _}} -> ok;
-        {error, Reason} -> error(Reason)
-    end.
-
-ensure_loaded(App) ->
-    case application:load(App) of
-        ok -> ok;
-        {error, {already_loaded, App}} -> ok;
-        {error, Reason} -> error(Reason)
-    end.
-
-

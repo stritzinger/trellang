@@ -1,7 +1,11 @@
 trellang
 =====
 
-Trello REST client for Erlang/OTP
+Trello REST client for Erlang/OTP 27 or later.
+
+Published versions and dates are listed in the [changelog](CHANGELOG.md).
+GitHub may contain an unreleased version; [Hex](https://hex.pm/packages/trellang)
+and [HexDocs](https://hexdocs.pm/trellang/) describe published releases.
 
 Build
 -----
@@ -16,7 +20,7 @@ trellang reads your Trello credentials from the Erlang application environment.
   - `trellang.trello_key`
   - `trellang.trello_token`
 
-Recommended: keep credentials in a non‑committed `dev.config` and run with `ERL_FLAGS`. See `docs/dev.config.example`.
+Recommended: keep credentials in a non‑committed `dev.config` and run with `ERL_FLAGS`. See the [configuration example](https://github.com/stritzinger/trellang/blob/main/docs/dev.config.example).
 
 Minimal `dev.config` example:
 ```
@@ -47,7 +51,8 @@ Run
 
 Getting started
 ---------------
-See the module docs for `trello` (ExDoc HTML) for API reference and examples. For CI setup, extended examples, and contributor/test notes, see `AGENTS.md`.
+See the module docs for `trello` (ExDoc HTML) for API reference and examples. For CI setup and contributor/test notes, see [AGENTS.md](AGENTS.md).
+Maintainers publish from development machines using the [release procedure](docs/releases.md).
 
 Credentials usage
 -----------------
@@ -80,4 +85,50 @@ Examples
 Assumes your key/token are provided via `dev.config`.
 
 How to get your board id:
-- Open the board in your browser and copy the 8‑character short link after `/b/` in the URL (e.g., `
+- Open the board in your browser and copy the 8‑character short link after `/b/` in the URL (e.g., `abcd1234`). Trello accepts this short link wherever a board id is required, or you can resolve the full id via `GET /1/boards/{shortLink}?fields=id`.
+
+Create and update a card
+```
+%% board id (short link or full id)
+BoardId = <<"abcd1234">>,
+
+%% pick a list on that board
+{ok, Lists} = trello:list_lists(BoardId),
+ListId = maps:get(<<"id">>, hd(Lists)),
+
+%% create
+{ok, Card} = trello:create_card(ListId, #{name => <<"Hello Trello">>}),
+CardId = maps:get(<<"id">>, Card),
+
+%% set desc and due
+{ok, _} = trello:set_desc(CardId, <<"Created from Erlang">>),
+{ok, _} = trello:set_due(CardId, <<"2031-01-02T03:04:05.000Z">>),
+
+%% add a green label by color
+{ok, _} = trello:add_label_by_color(BoardId, CardId, <<"green">>),
+
+%% fetch card
+{ok, Card2} = trello:get_card(CardId).
+```
+
+Custom fields (text/date/checkbox)
+```
+BoardId = <<"abcd1234">>,
+{ok, Lists} = trello:list_lists(BoardId),
+ListId = maps:get(<<"id">>, hd(Lists)),
+{ok, Fields} = trello:list_custom_fields(BoardId),
+TextId = maps:get(<<"id">>, hd([F || F <- Fields, maps:get(<<"type">>, F, <<>>) =:= <<"text">>])),
+{ok, Card} = trello:create_card(ListId, #{name => <<"CF demo">>}),
+CardId = maps:get(<<"id">>, Card),
+{ok, _} = trello:set_custom_field_text(CardId, TextId, <<"hello-cf">>),
+{ok, CardCF} = trello:get_card_with_custom_fields(CardId).
+```
+
+Discover lists and dump a board
+```
+BoardId = <<"abcd1234">>,
+{ok, Lists} = trello:list_lists(BoardId),
+{ok, Dump} = trello:dump_board(BoardId, #{}).
+%% Dump = #{ board => #{<<"id">> := _, <<"name">> := _},
+%%           lists => [ #{<<"id">> := _, <<"name">> := _, <<"cards">> := [#{<<"id">> := _} | _]} | _ ] }
+```

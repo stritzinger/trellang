@@ -7,7 +7,9 @@
     suite/0,
     all/0,
     init_per_suite/1,
-    end_per_suite/1
+    end_per_suite/1,
+    init_per_testcase/2,
+    end_per_testcase/2
 ]).
 
 %% Test cases
@@ -22,13 +24,16 @@ all() ->
     [health_check].
 
 init_per_suite(Config) ->
-    ok = ensure_started(ssl),
-    ok = ensure_started(inets),
-    ok = ensure_loaded(trellang),
-    Config.
+    trello_test_fixture:init_per_suite(Config).
 
-end_per_suite(_Config) ->
-    ok.
+end_per_suite(Config) ->
+    trello_test_fixture:end_per_suite(Config).
+
+init_per_testcase(Case, Config) ->
+    trello_test_fixture:init_per_testcase(Case, Config).
+
+end_per_testcase(Case, Config) ->
+    trello_test_fixture:end_per_testcase(Case, Config).
 
 health_check(_Config) ->
     case {application:get_env(trellang, trello_key), application:get_env(trellang, trello_token)} of
@@ -41,19 +46,3 @@ health_check(_Config) ->
             _ = maps:get(<<"username">>, Me),
             ok
     end.
-
-ensure_started(App) ->
-    case application:ensure_all_started(App) of
-        {ok, _} -> ok;
-        {error, {already_started, _}} -> ok;
-        {error, Reason} -> error(Reason)
-    end.
-
-ensure_loaded(App) ->
-    case application:load(App) of
-        ok -> ok;
-        {error, {already_loaded, App}} -> ok;
-        {error, Reason} -> error(Reason)
-    end.
-
-

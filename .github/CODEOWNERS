@@ -1,0 +1,7 @@
+# Suggested reviewers for changes to code that can access credentials.
+/.github/ @stritzinger/developers
+/scripts/ @stritzinger/developers
+/test/ @stritzinger/developers
+/src/ @stritzinger/developers
+/rebar.config @stritzinger/developers
+/rebar.lock @stritzinger/developers
