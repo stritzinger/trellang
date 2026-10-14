@@ -2,19 +2,23 @@
 
 -include_lib("common_test/include/ct.hrl").
 
--export([suite/0, all/0, init_per_suite/1, end_per_suite/1]).
+-export([suite/0, all/0, init_per_suite/1, end_per_suite/1, init_per_testcase/2, end_per_testcase/2]).
 -export([me_with_explicit_credentials/1, me_with_invalid_credentials/1, me_parity_with_env/1, get_card_parity/1]).
 
 suite() -> [{timetrap, {seconds, 60}}].
 all() -> [me_with_explicit_credentials, me_with_invalid_credentials, me_parity_with_env, get_card_parity].
 
 init_per_suite(Config) ->
-    ok = ensure_started(ssl),
-    ok = ensure_started(inets),
-    ok = ensure_loaded(trellang),
-    Config.
+    trello_test_fixture:init_per_suite(Config).
 
-end_per_suite(_Config) -> ok.
+end_per_suite(Config) ->
+    trello_test_fixture:end_per_suite(Config).
+
+init_per_testcase(Case, Config) ->
+    trello_test_fixture:init_per_testcase(Case, Config).
+
+end_per_testcase(Case, Config) ->
+    trello_test_fixture:end_per_testcase(Case, Config).
 
 me_with_explicit_credentials(_Config) ->
     case {application:get_env(trellang, trello_key), application:get_env(trellang, trello_token)} of
@@ -55,14 +59,14 @@ me_parity_with_env(_Config) ->
             ok
     end.
 
-get_card_parity(_Config) ->
+get_card_parity(Config) ->
     case {application:get_env(trellang, trello_key), application:get_env(trellang, trello_token), application:get_env(trellang, list_id)} of
         {undefined, _, _} -> {skip, "missing trellang.trello_key in dev.config"};
         {_, undefined, _} -> {skip, "missing trellang.trello_token in dev.config"};
         {_, _, undefined} -> {skip, "missing trellang.list_id in dev.config"};
         {{ok, Key0}, {ok, Tok0}, {ok, ListId0}} ->
             Creds = #{trello_key => to_bin(Key0), trello_token => to_bin(Tok0)},
-            {ok, Card0} = trello:create_card(ListId0, #{name => <<"parity">>}),
+            {ok, Card0} = trello_test_fixture:create_card(Config, ListId0, #{name => <<"parity">>}),
             CardId = maps:get(<<"id">>, Card0),
             {ok, C1} = trello:get_card(CardId),
             {ok, C2} = trello:get_card(Creds, CardId),
@@ -72,19 +76,6 @@ get_card_parity(_Config) ->
             ok
     end.
 
-ensure_started(App) ->
-    case application:ensure_all_started(App) of
-        {ok, _} -> ok;
-        {error, {already_started, _}} -> ok;
-        {error, Reason} -> error(Reason)
-    end.
-
-ensure_loaded(App) ->
-    case application:load(App) of
-        ok -> ok;
-        {error, {already_loaded, App}} -> ok;
-        {error, Reason} -> error(Reason)
-    end.
 
 to_bin(B) when is_binary(B) -> B;
  to_bin(L) when is_list(L) -> unicode:characters_to_binary(L);

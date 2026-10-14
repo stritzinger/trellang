@@ -15,44 +15,38 @@ all() ->
 suite() -> [{timetrap, {seconds, 90}}].
 
 init_per_suite(Config) ->
-    ok = ensure_started(ssl),
-    ok = ensure_started(inets),
-    ok = ensure_loaded(trellang),
-    Config.
+    trello_test_fixture:init_per_suite(Config).
 
-end_per_suite(_Config) -> ok.
+end_per_suite(Config) ->
+    trello_test_fixture:end_per_suite(Config).
 
-init_per_testcase(_TC, Config) ->
-    erlang:erase(cleanup_cards),
-    Config.
+init_per_testcase(Case, Config) ->
+    trello_test_fixture:init_per_testcase(Case, Config).
 
-end_per_testcase(_TC, Config) ->
-    maybe_cleanup_created_cards(),
-    Config.
+end_per_testcase(Case, Config) ->
+    trello_test_fixture:end_per_testcase(Case, Config).
 
-list_empty_on_new_card(_Config) ->
+list_empty_on_new_card(Config) ->
     case {application:get_env(trellang, board_id), application:get_env(trellang, list_id)} of
         {undefined, _} -> {skip, "missing trellang.board_id in dev.config"};
         {_, undefined} -> {skip, "missing trellang.list_id in dev.config"};
         {_, _} ->
             {ok, ListId} = application:get_env(trellang, list_id),
-            {ok, #{<<"id">> := CardId}} = trello:create_card(ListId, #{name => <<"checklists-baseline">>}),
-            register_cleanup_card(CardId),
+            {ok, #{<<"id">> := CardId}} = trello_test_fixture:create_card(Config, ListId, #{name => <<"checklists-baseline">>}),
             {ok, Checklists} = trello:list_checklists(CardId),
             true = is_list(Checklists),
             [] = Checklists,
             ok
     end.
 
-check_item_due_and_assign(_Config) ->
+check_item_due_and_assign(Config) ->
     case {application:get_env(trellang, board_id), application:get_env(trellang, list_id)} of
         {undefined, _} -> {skip, "missing trellang.board_id in dev.config"};
         {_, undefined} -> {skip, "missing trellang.list_id in dev.config"};
         {_, _} ->
             {ok, BoardId} = application:get_env(trellang, board_id),
             {ok, ListId} = application:get_env(trellang, list_id),
-            {ok, #{<<"id">> := CardId}} = trello:create_card(ListId, #{name => <<"checkitems-due-assign">>}),
-            register_cleanup_card(CardId),
+            {ok, #{<<"id">> := CardId}} = trello_test_fixture:create_card(Config, ListId, #{name => <<"checkitems-due-assign">>}),
             {ok, CL} = trello:create_checklist(CardId, <<"Todos">>),
             CLId = maps:get(<<"id">>, CL),
             {ok, Item} = trello:add_check_item(CLId, <<"due-assign">>, #{}),
@@ -71,14 +65,13 @@ check_item_due_and_assign(_Config) ->
             end
     end.
 
-check_item_crud(_Config) ->
+check_item_crud(Config) ->
     case {application:get_env(trellang, board_id), application:get_env(trellang, list_id)} of
         {undefined, _} -> {skip, "missing trellang.board_id in dev.config"};
         {_, undefined} -> {skip, "missing trellang.list_id in dev.config"};
         {_, _} ->
             {ok, ListId} = application:get_env(trellang, list_id),
-            {ok, #{<<"id">> := CardId}} = trello:create_card(ListId, #{name => <<"checkitems-crud">>}),
-            register_cleanup_card(CardId),
+            {ok, #{<<"id">> := CardId}} = trello_test_fixture:create_card(Config, ListId, #{name => <<"checkitems-crud">>}),
             {ok, CL} = trello:create_checklist(CardId, <<"Todos">>),
             CLId = maps:get(<<"id">>, CL),
             {ok, ItemA} = trello:add_check_item(CLId, <<"one">>, #{}),
@@ -94,14 +87,13 @@ check_item_crud(_Config) ->
             ok
     end.
 
-rename_and_reorder_checklist(_Config) ->
+rename_and_reorder_checklist(Config) ->
     case {application:get_env(trellang, board_id), application:get_env(trellang, list_id)} of
         {undefined, _} -> {skip, "missing trellang.board_id in dev.config"};
         {_, undefined} -> {skip, "missing trellang.list_id in dev.config"};
         {_, _} ->
             {ok, ListId} = application:get_env(trellang, list_id),
-            {ok, #{<<"id">> := CardId}} = trello:create_card(ListId, #{name => <<"checklists-rename">>}),
-            register_cleanup_card(CardId),
+            {ok, #{<<"id">> := CardId}} = trello_test_fixture:create_card(Config, ListId, #{name => <<"checklists-rename">>}),
             {ok, CL0} = trello:create_checklist(CardId, <<"Initial">>),
             CLId = maps:get(<<"id">>, CL0),
             {ok, CL1} = trello:rename_checklist(CLId, <<"Renamed">>),
@@ -112,14 +104,13 @@ rename_and_reorder_checklist(_Config) ->
             ok
     end.
 
-create_checklist_on_card(_Config) ->
+create_checklist_on_card(Config) ->
     case {application:get_env(trellang, board_id), application:get_env(trellang, list_id)} of
         {undefined, _} -> {skip, "missing trellang.board_id in dev.config"};
         {_, undefined} -> {skip, "missing trellang.list_id in dev.config"};
         {_, _} ->
             {ok, ListId} = application:get_env(trellang, list_id),
-            {ok, #{<<"id">> := CardId}} = trello:create_card(ListId, #{name => <<"checklists-create">>}),
-            register_cleanup_card(CardId),
+            {ok, #{<<"id">> := CardId}} = trello_test_fixture:create_card(Config, ListId, #{name => <<"checklists-create">>}),
             {ok, CL} = trello:create_checklist(CardId, <<"Todo">>),
             _ = maps:get(<<"id">>, CL),
             CardId = maps:get(<<"idCard">>, CL),
@@ -128,33 +119,3 @@ create_checklist_on_card(_Config) ->
             true = lists:any(fun(#{<<"id">> := Id}) -> Id =:= maps:get(<<"id">>, CL); (_) -> false end, All),
             ok
     end.
-
-register_cleanup_card(CardId) ->
-    Cards = erlang:get(cleanup_cards),
-    case Cards of
-        undefined -> erlang:put(cleanup_cards, [CardId]);
-        L when is_list(L) -> erlang:put(cleanup_cards, [CardId | L])
-    end,
-    ok.
-
-maybe_cleanup_created_cards() ->
-    case {application:get_env(trellang, test_cleanup), erlang:get(cleanup_cards)} of
-        {{ok, true}, Cards} when is_list(Cards) -> lists:foreach(fun(C) -> _ = trello:update_card(C, #{closed => true}) end, Cards), ok;
-        _ -> ok
-    end.
-
-ensure_started(App) ->
-    case application:ensure_all_started(App) of
-        {ok, _} -> ok;
-        {error, {already_started, _}} -> ok;
-        {error, Reason} -> error(Reason)
-    end.
-
-ensure_loaded(App) ->
-    case application:load(App) of
-        ok -> ok;
-        {error, {already_loaded, App}} -> ok;
-        {error, Reason} -> error(Reason)
-    end.
-
-

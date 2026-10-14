@@ -2,19 +2,23 @@
 
 -include_lib("common_test/include/ct.hrl").
 
--export([suite/0, all/0, init_per_suite/1, end_per_suite/1]).
+-export([suite/0, all/0, init_per_suite/1, end_per_suite/1, init_per_testcase/2, end_per_testcase/2]).
 -export([list_custom_fields/1, set_date_and_checkbox_fields/1]).
 
 suite() -> [{timetrap, {seconds, 60}}].
 all() -> [list_custom_fields, set_date_and_checkbox_fields].
 
 init_per_suite(Config) ->
-    ok = ensure_started(ssl),
-    ok = ensure_started(inets),
-    ok = ensure_loaded(trellang),
-    Config.
+    trello_test_fixture:init_per_suite(Config).
 
-end_per_suite(_Config) -> ok.
+end_per_suite(Config) ->
+    trello_test_fixture:end_per_suite(Config).
+
+init_per_testcase(Case, Config) ->
+    trello_test_fixture:init_per_testcase(Case, Config).
+
+end_per_testcase(Case, Config) ->
+    trello_test_fixture:end_per_testcase(Case, Config).
 
 list_custom_fields(_Config) ->
     case application:get_env(trellang, board_id) of
@@ -25,7 +29,7 @@ list_custom_fields(_Config) ->
             ok
     end.
 
-set_date_and_checkbox_fields(_Config) ->
+set_date_and_checkbox_fields(Config) ->
     case {application:get_env(trellang, board_id), application:get_env(trellang, list_id)} of
         {undefined, _} -> {skip, "missing trellang.board_id in dev.config"};
         {_, undefined} -> {skip, "missing trellang.list_id in dev.config"};
@@ -39,7 +43,7 @@ set_date_and_checkbox_fields(_Config) ->
                 {[DF | _], [CF | _]} ->
                     DateFieldId = maps:get(<<"id">>, DF),
                     CheckboxFieldId = maps:get(<<"id">>, CF),
-                    {ok, Card0} = trello:create_card(ListId, #{name => <<"CT custom date/checkbox">>}),
+                    {ok, Card0} = trello_test_fixture:create_card(Config, ListId, #{name => <<"CT custom date/checkbox">>}),
                     CardId = maps:get(<<"id">>, Card0),
                     Date = <<"2031-12-24T12:34:56.000Z">>,
                     {ok, _} = trello:set_custom_field_date(CardId, DateFieldId, Date),
@@ -51,20 +55,3 @@ set_date_and_checkbox_fields(_Config) ->
                     ok
             end
     end.
-
-
-ensure_started(App) ->
-    case application:ensure_all_started(App) of
-        {ok, _} -> ok;
-        {error, {already_started, _}} -> ok;
-        {error, Reason} -> error(Reason)
-    end.
-
-ensure_loaded(App) ->
-    case application:load(App) of
-        ok -> ok;
-        {error, {already_loaded, App}} -> ok;
-        {error, Reason} -> error(Reason)
-    end.
-
-

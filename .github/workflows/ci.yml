@@ -1,0 +1,95 @@
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+    tags: ['v*']
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  validate:
+    name: Validate (OTP ${{ matrix.otp }})
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    strategy:
+      fail-fast: false
+      matrix:
+        otp: ['27.3', '28.3.1']
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: erlef/setup-beam@54075bcc5e249e4758d363f27d099f55d843f124 # v1.24.1
+        with:
+          otp-version: ${{ matrix.otp }}
+          rebar3-version: '3.27.0'
+      - name: Check release metadata
+        run: |
+          if [[ "$GITHUB_REF" == refs/tags/* ]]; then
+            scripts/check_release.escript --tag "$GITHUB_REF_NAME"
+            git merge-base --is-ancestor HEAD origin/main
+          else
+            scripts/check_release.escript
+          fi
+      - name: Test release scripts
+        run: python3 -m unittest discover -s scripts/tests
+      - name: Compile and test offline fixtures
+        run: |
+          rebar3 compile
+          rebar3 ct --suite test/trello_test_fixture_SUITE.erl,test/trello_board_server_offline_SUITE.erl
+      - name: Build and inspect package and documentation
+        id: build
+        run: |
+          rebar3 hex build package
+          rebar3 hex build docs
+          version="$(scripts/check_release.escript --version)"
+          python3 scripts/check_artifacts.py --package "_build/default/lib/trellang/hex/trellang-$version.tar" --docs doc
+          printf 'version=%s\n' "$version" >> "$GITHUB_OUTPUT"
+      - name: Retain release artifacts
+        if: matrix.otp == '28.3.1'
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: release-artifacts
+          path: |
+            _build/default/lib/trellang/hex/trellang-${{ steps.build.outputs.version }}.tar
+            doc/
+          if-no-files-found: error
+          retention-days: 7
+
+  integration:
+    name: Integration (OTP ${{ matrix.otp }})
+    needs: validate
+    if: startsWith(github.ref, 'refs/tags/v')
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    environment: trello-tests
+    concurrency:
+      group: trello-tests
+      cancel-in-progress: false
+    strategy:
+      fail-fast: false
+      max-parallel: 1
+      matrix:
+        otp: ['27.3', '28.3.1']
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: erlef/setup-beam@54075bcc5e249e4758d363f27d099f55d843f124 # v1.24.1
+        with:
+          otp-version: ${{ matrix.otp }}
+          rebar3-version: '3.27.0'
+      - name: Run complete Common Test suite
+        env:
+          TRELLO_KEY: ${{ secrets.TRELLO_KEY }}
+          TRELLO_TOKEN: ${{ secrets.TRELLO_TOKEN }}
+          TRELLO_BOARD_ID: ${{ vars.TRELLO_BOARD_ID }}
+          TRELLO_LIST_ID: ${{ vars.TRELLO_LIST_ID }}
+        run: python3 scripts/run_ct.py
+      - name: Dialyzer
+        run: rebar3 dialyzer

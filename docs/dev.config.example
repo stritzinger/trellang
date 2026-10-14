@@ -13,8 +13,8 @@
       {cf_id_list, undefined},
       % optional id to exercise member update tests
       {member_id, undefined},
-      % archive/delete test cards after each test when true
-      {test_cleanup, false}
+      % archive only cards created by this test run; required for release checks
+      {test_cleanup, true}
     ]}
 ].
 

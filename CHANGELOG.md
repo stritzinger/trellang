@@ -3,7 +3,7 @@ trellang Changelog
 
 This project adheres to semantic versioning. Notable changes for each release are listed below.
 
-## v1.2.0
+## v1.2.0 — Unreleased
 
 - Credentials-aware API:
   - Added Creds-first arities for all public APIs (maps: `#{trello_key, trello_token}`), legacy arities delegate to Creds variants.
@@ -14,14 +14,18 @@ This project adheres to semantic versioning. Notable changes for each release ar
   - Broadened TLS SNI fallback handling in HTTP helpers.
   - Increased server call timeouts in CT to accommodate network variance.
 - Documentation:
-  - README updates: explicit credentials usage and board mirror quickstart.
+  - README updates: explicit credentials usage and board mirror quickstart; restored card, custom-field and board-dump examples.
+  - Documented local release publication, protected CI credentials and version consistency checks.
 - Testing:
   - New CT suites: `trello_credentials_SUITE` and `trello_board_server_SUITE`.
+  - Added isolated, board-scoped test resource cleanup and offline regression tests.
+  - Added release metadata, package and documentation checks; protected integration CI keeps raw credential-bearing logs private.
+  - Corrected Dialyzer's OTP dependency setup and removed unreachable board-server refresh branches without changing behavior.
 
 ### Compare
-- v1.2.0 vs v1.1.0: `https://github.com/stritzinger/trellang/compare/v1.1.0...v1.2.0`
+- [Unreleased changes since v1.1.0](https://github.com/stritzinger/trellang/compare/v1.1.0...HEAD)
 
-## v1.1.0
+## v1.1.0 — 2025-09-18
 
 - Added checklist support:
   - Checklists: `list_checklists/1`, `create_checklist/2`, `rename_checklist/2`, `set_checklist_pos/2`.
@@ -36,9 +40,10 @@ This project adheres to semantic versioning. Notable changes for each release ar
   - Added HTTP DELETE helper with retry/backoff (429/5xx) and jitter.
 
 ### Compare
-- v1.1.0 vs v1.0.0: `https://github.com/stritzinger/trellang/compare/v1.0.0...v1.1.0`
+- [v1.1.0 changes since v1.0.0](https://github.com/stritzinger/trellang/compare/v1.0.0...v1.1.0)
+- [Hex package](https://hex.pm/packages/trellang/1.1.0) · [Versioned documentation](https://hexdocs.pm/trellang/1.1.0/)
 
-## v1.0.0
+## v1.0.0 — 2025-09-08
 
 - Initial release on Hex with a focused, board‑agnostic Trello client.
 - Cards:
@@ -55,6 +60,7 @@ This project adheres to semantic versioning. Notable changes for each release ar
   - ExDoc configured; Hex publishing and relx release setup.
 
 ### Links
-- v1.0.0 tag: `https://github.com/stritzinger/trellang/releases/tag/v1.0.0`
+- [v1.0.0 source](https://github.com/stritzinger/trellang/tree/v1.0.0)
+- [Hex package](https://hex.pm/packages/trellang/1.0.0) · [Versioned documentation](https://hexdocs.pm/trellang/1.0.0/)
 
 
