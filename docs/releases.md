@@ -14,17 +14,17 @@ version has been published.
 
 The historical releases were reconciled as follows:
 
-| Version | Hex publication | Source |
+| Version | Release date | Source |
 | --- | --- | --- |
 | 1.0.0 | 2025-09-08 | Existing `v1.0.0` tag |
 | 1.1.0 | 2025-09-18 | Restored annotated `v1.1.0` tag at `facc038f37d8422ffe93ef236a8d50cfa9ad8c5b`; every packaged file matches this commit |
-| 1.2.0 | Unreleased | Credentials-aware APIs and board mirror server committed on GitHub |
+| 1.2.0 | 2026-10-14 | `v1.2.0`; credentials-aware APIs and board mirror server |
 
 The missing `v1.1.0` tag was restored and pushed after comparing every file in
 the published archive with the verified commit above. The published package was
-unchanged; the tag annotation records its recovery after publication. Version
-1.2.0 remains **Unreleased**, pending completion of the release procedure below.
-Update this table when publication is verified.
+unchanged; the tag annotation records its recovery after publication. Release
+dates follow the changelog; confirm published versions on
+[Hex](https://hex.pm/packages/trellang) and [HexDocs](https://hexdocs.pm/trellang/).
 
 ## Toolchain and credential protection
 
