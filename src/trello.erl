@@ -323,6 +323,9 @@ http_get_json_sni(Url, SNIHost) ->
     SSLOpts = [
         {server_name_indication, SNIHost},
         {verify, verify_peer},
+        {customize_hostname_check, [
+            {match_fun, public_key:pkix_verify_hostname_match_fun(https)}
+        ]},
         {cacerts, public_key:cacerts_get()}
     ],
     HTTPOpts = [{ssl, SSLOpts}],
@@ -355,6 +358,9 @@ http_post_json_sni(Url, SNIHost) ->
     SSLOpts = [
         {server_name_indication, SNIHost},
         {verify, verify_peer},
+        {customize_hostname_check, [
+            {match_fun, public_key:pkix_verify_hostname_match_fun(https)}
+        ]},
         {cacerts, public_key:cacerts_get()}
     ],
     HTTPOpts = [{ssl, SSLOpts}],
@@ -387,6 +393,9 @@ http_put_json_sni(Url, SNIHost) ->
     SSLOpts = [
         {server_name_indication, SNIHost},
         {verify, verify_peer},
+        {customize_hostname_check, [
+            {match_fun, public_key:pkix_verify_hostname_match_fun(https)}
+        ]},
         {cacerts, public_key:cacerts_get()}
     ],
     HTTPOpts = [{ssl, SSLOpts}],
@@ -406,6 +415,9 @@ do_put_body(#{trello_key := Key0, trello_token := Token0}, Path, QueryKVs, MapBo
     SSLOpts = [
         {server_name_indication, "api.trello.com"},
         {verify, verify_peer},
+        {customize_hostname_check, [
+            {match_fun, public_key:pkix_verify_hostname_match_fun(https)}
+        ]},
         {cacerts, public_key:cacerts_get()}
     ],
     HTTPOpts = [{ssl, SSLOpts}],
@@ -452,6 +464,9 @@ http_delete_json_sni(Url, SNIHost) ->
     SSLOpts = [
         {server_name_indication, SNIHost},
         {verify, verify_peer},
+        {customize_hostname_check, [
+            {match_fun, public_key:pkix_verify_hostname_match_fun(https)}
+        ]},
         {cacerts, public_key:cacerts_get()}
     ],
     HTTPOpts = [{ssl, SSLOpts}],
