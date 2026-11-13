@@ -243,7 +243,10 @@ create_card(ListId0, Options) when is_map(Options) ->
     Query = [
         {<<"idList">>, ListId},
         {<<"name">>, NameBin}
-    ],
+    ] ++ case maps:find(pos, Options) of
+        {ok, Pos} -> [{<<"pos">>, to_bin(Pos)}];
+        error -> []
+    end,
     do_post("/cards", Query).
 
 create_card(Creds, ListId0, Options) when is_map(Options) ->
@@ -252,7 +255,10 @@ create_card(Creds, ListId0, Options) when is_map(Options) ->
     Query = [
         {<<"idList">>, ListId},
         {<<"name">>, NameBin}
-    ],
+    ] ++ case maps:find(pos, Options) of
+        {ok, Pos} -> [{<<"pos">>, to_bin(Pos)}];
+        error -> []
+    end,
     do_post(Creds, "/cards", Query).
 
 -doc """
